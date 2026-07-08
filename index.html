@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Produção · Tempo Real</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F5F0E4; --card:#FFFFFF; --ink:#2A2620; --ink-soft:#6B6459; --ink-faint:#96907F;
+  --brass:#B9791E; --brass-dark:#8A5A15; --brass-bg:#FBE8C8;
+  --line:#E2DCCB; --line-strong:#CFC6AC;
+  --red:#C0392B; --red-bg:#FBE3DF; --red-line:#EEB3A8;
+  --amber:#C17F0A; --amber-bg:#FCEFCB; --amber-line:#F0CE81;
+  --green:#1F8A57; --green-bg:#DEF3E7; --green-line:#A6DEBF;
+  --blue:#1F6FA8; --blue-bg:#DDEDF9; --blue-line:#A2CDEA;
+  --purple:#6E4DB0; --purple-bg:#EBE3F8; --purple-line:#C5AEE8;
+  --teal:#12897A; --teal-bg:#DBF2EE; --teal-line:#96D9CC;
+  --coral:#D65B3A; --coral-bg:#FCE6DD; --coral-line:#F0B49B;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;line-height:1.45;}
+h1,h2,h3{font-family:'Source Serif 4',serif;font-weight:600;margin:0;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+#app{max-width:1180px;margin:0 auto;padding:0 0 80px;}
+header.top{padding:16px 20px;background:var(--ink);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+header.top .brandline{display:flex;align-items:center;gap:14px;}
+header.top .logo{height:34px;display:block;background:#fff;padding:4px 8px;border-radius:6px;}
+header.top h1{font-size:19px;letter-spacing:.2px;color:#fff;}
+header.top .sub{font-size:12.5px;color:#D8CFB8;}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;background:var(--paper);position:sticky;top:0;z-index:20;border-bottom:2px solid var(--line-strong);}
+nav.tabs button{flex:none;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;}
+nav.tabs button .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+nav.tabs button.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+main{padding:20px;}
+.grid{display:grid;gap:14px;}
+.cards{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
+.card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line-strong);border-radius:var(--radius);padding:16px;}
+.card.acc-brass{border-left-color:var(--brass);}
+.card.acc-blue{border-left-color:var(--blue);}
+.card.acc-teal{border-left-color:var(--teal);}
+.card.acc-green{border-left-color:var(--green);}
+.card.acc-purple{border-left-color:var(--purple);}
+.card.acc-coral{border-left-color:var(--coral);}
+.card.acc-red{border-left-color:var(--red);}
+.card h3{font-size:14px;color:var(--ink-soft);font-weight:600;margin-bottom:6px;}
+.card .big{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;}
+.card .small{font-size:12px;color:var(--ink-faint);margin-top:4px;}
+.scanner-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;}
+.scanner-chip.SV600{background:var(--teal-bg);color:var(--teal);}
+.scanner-chip.ViisanTR{background:var(--purple-bg);color:var(--purple);}
+.scanner-chip.CamerasTR{background:var(--coral-bg);color:var(--coral);}
+.scanner-chip.ScannerTeck{background:var(--blue-bg);color:var(--blue);}
+.scanner-chip.Servidor1{background:var(--amber-bg);color:var(--amber);}
+.scanner-chip.Servidor2{background:var(--green-bg);color:var(--green);}
+.section-title h2{border-left:4px solid var(--brass);padding-left:10px;}
+.section-title{display:flex;align-items:center;justify-content:space-between;margin:26px 0 10px;}
+.section-title h2{font-size:17px;}
+.stamp{display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border:2px solid;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;transform:rotate(-2deg);}
+.stamp.red{color:var(--red);border-color:var(--red);background:var(--red-bg);}
+.stamp.amber{color:var(--amber);border-color:var(--amber);background:var(--amber-bg);}
+.stamp.green{color:var(--green);border-color:var(--green);background:var(--green-bg);}
+.stamp.blue{color:var(--blue);border-color:var(--blue);background:var(--blue-bg);}
+.stamp.gray{color:var(--ink-faint);border-color:var(--line-strong);background:var(--paper);transform:rotate(0);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);}
+th{color:var(--ink-soft);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;}
+tr:hover td{background:#FBFAF6;}
+td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace;}
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:6px 12px;overflow-x:auto;}
+form.entryform{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end;margin-bottom:16px;}
+label{font-size:12px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:4px;}
+input,select{width:100%;padding:8px 9px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;font-size:13.5px;font-family:'Inter',sans-serif;color:var(--ink);}
+input:focus,select:focus{outline:2px solid var(--brass);outline-offset:0;border-color:var(--brass);}
+button.btn{padding:9px 16px;border-radius:7px;border:1px solid var(--brass);background:var(--brass);color:#fff;font-weight:600;font-size:13.5px;cursor:pointer;}
+button.btn.secondary{background:var(--card);color:var(--brass-dark);}
+button.btn.ghost{background:transparent;border-color:var(--line-strong);color:var(--ink-soft);}
+button.btn.danger{background:var(--red);border-color:var(--red);}
+button.btn:hover{opacity:.9;}
+.rowflex{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.bar-outer{width:100%;height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:6px;}
+.bar-inner{height:100%;border-radius:99px;}
+.tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--brass-bg);color:var(--brass-dark);font-weight:600;}
+.opheader{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.muted{color:var(--ink-faint);font-size:12px;}
+.divider{height:1px;background:var(--line);margin:18px 0;}
+.badgebar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:8px;font-size:13px;z-index:100;opacity:0;transition:opacity .25s;pointer-events:none;}
+.toast.show{opacity:1;}
+.empty{padding:26px;text-align:center;color:var(--ink-faint);font-size:13px;}
+.op-status-row{display:flex;align-items:center;gap:8px;}
+select[multiple]{height:auto;}
+.footnote{font-size:11px;color:var(--ink-faint);margin-top:6px;}
+::-webkit-scrollbar{height:8px;width:8px;}
+::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px;}
+@media(max-width:640px){
+  nav.tabs{padding:8px 10px;}
+  main{padding:12px;}
+  form.entryform{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brandline">
+      <img class="logo" id="logo-img" alt="Tempo Real">
+      <div>
+        <h1>Sistema de Produção</h1>
+        <span class="sub mono" id="hoje-label"></span>
+        <span class="sub mono" id="cloud-status" style="margin-left:10px;">☁️ conectando…</span>
+      </div>
+    </div>
+    <div class="sub">Tempo Real Produção e Comunicação</div>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast"></div>
+<script type="module">
+// ===================== FIREBASE (FIRESTORE) =====================
+// ATENÇÃO: o Firestore está em "modo de teste", ou seja, aberto para leitura/escrita
+// por qualquer pessoa que tenha essas credenciais (elas não são secretas, mas o MODO
+// TESTE sim é público). Antes de usar com dados reais de operadores/contrato, configure
+// regras de segurança no console do Firebase (Firestore Database > Regras), idealmente
+// exigindo login (Firebase Authentication) para você e sua gerente.
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD-ud2d9Pp0C41Xjas7PD5COhcLsrDJeX4",
+  authDomain: "sistema-de-producao-ef59b.firebaseapp.com",
+  projectId: "sistema-de-producao-ef59b",
+  storageBucket: "sistema-de-producao-ef59b.firebasestorage.app",
+  messagingSenderId: "673744042204",
+  appId: "1:673744042204:web:a6bd02b5f0f013d832dc19"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const FIRESTORE_COLLECTION = "sistemaProducao"; // todas as "chaves" do sistema viram documentos aqui
+// ===================================================================
+
+const LOGO_B64 = "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";
+let state = {
+  operadores: [],
+  metasScanner: {
+    "SV600": {diaria:2500, hora:313},
+    "ViisanTR": {diaria:2500, hora:313},
+    "CamerasTR": {diaria:2500, hora:313},
+    "ScannerTeck": {diaria:3500, hora:438}
+  },
+  metaHigienizacao: 40,
+  metaQualidade: {qc:2000, finalizados:2000},
+  metaArqger: {diaria:5000, semanal:30000, mensal:120000},
+  thresholds: {baixa:70, media:90, boa:110},
+  fechamentos: [],
+  contratoTJRJ: {nome:"TJRJ · Arquivo Regional de Itaipava", processosMeta:250000, folhasMedia:80, imagensMeta:20000000, dataInicio:"2026-07-01", duracaoAnos:4},
+  contratoTotais: {arquivos:0, caixas:0, nid:0},
+  arqgerTotais: {enviados:0, nids:0, aprovados:0, consertos:0, pagos:0},
+  nfFechamentos: []
+};
+let monthCache = {producao:{}, envio:{}, nas:{}, higienizacao:{}, qualidade:{}};
+let currentTab = 'painel';
+let todayStr = new Date().toISOString().slice(0,10);
+let refMonth = todayStr.slice(0,7);
+
+const SCANNERS = ["SV600","ViisanTR","CamerasTR","ScannerTeck"];
+const SCANNER_LABEL = {SV600:"SV-600", ViisanTR:"Viisan TR", CamerasTR:"Câmera TR", ScannerTeck:"ScannerTeck"};
+const SERVIDORES = ["Servidor1","Servidor2"];
+const SERVIDOR_LABEL = {Servidor1:"Servidor 1", Servidor2:"Servidor 2"};
+const FUNCOES = ["Digitalizador","Higienizador","Controle de Qualidade"];
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function fmt(n){ return Math.round(n||0).toLocaleString('pt-BR'); }
+function pct(a,b){ if(!b) return 0; return (a/b)*100; }
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+function monthKey(d){ return d.slice(0,7); }
+function weekRange(d){
+  const dt = new Date(d+"T00:00:00");
+  const day = (dt.getDay()+6)%7;
+  const monday = new Date(dt); monday.setDate(dt.getDate()-day);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  return {start: monday.toISOString().slice(0,10), end: sunday.toISOString().slice(0,10)};
+}
+function inRange(d,s,e){ return d>=s && d<=e; }
+
+async function loadJSON(key, fallback){
+  try{
+    const ref = doc(db, FIRESTORE_COLLECTION, key);
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data().value : fallback;
+  }catch(e){
+    console.error('Firestore load error ['+key+']', e);
+    setCloudStatus('erro');
+    return fallback;
+  }
+}
+async function saveJSON(key, value){
+  try{
+    const ref = doc(db, FIRESTORE_COLLECTION, key);
+    await setDoc(ref, {value, atualizadoEm: Date.now()});
+    setCloudStatus('ok');
+  }catch(e){
+    console.error('Firestore save error ['+key+']', e);
+    setCloudStatus('erro');
+    toast('Erro ao salvar na nuvem. Verifique sua conexão.');
+  }
+}
+function setCloudStatus(status){
+  const el = document.getElementById('cloud-status');
+  if(!el) return;
+  if(status==='ok') el.innerHTML = '☁️ sincronizado';
+  else if(status==='erro') el.innerHTML = '⚠️ erro de conexão com a nuvem';
+  else el.innerHTML = '☁️ conectando…';
+}
+async function getMonthArr(type, mk){
+  if(monthCache[type][mk]) return monthCache[type][mk];
+  const arr = await loadJSON('sp-'+type+'-'+mk, []);
+  monthCache[type][mk] = arr;
+  return arr;
+}
+async function saveMonthArr(type, mk){
+  await saveJSON('sp-'+type+'-'+mk, monthCache[type][mk]);
+}
+
+async function loadAll(){
+  state.operadores = await loadJSON('sp-operadores', []);
+  const metas = await loadJSON('sp-metas', null);
+  if(metas) Object.assign(state, metas);
+  state.fechamentos = await loadJSON('sp-fechamentos', []);
+  const contrato = await loadJSON('sp-contrato', null);
+  if(contrato){
+    if(contrato.contratoTJRJ) state.contratoTJRJ = contrato.contratoTJRJ;
+    if(contrato.contratoTotais) state.contratoTotais = contrato.contratoTotais;
+  }
+  const arqgerT = await loadJSON('sp-arqger-totais', null);
+  if(arqgerT) state.arqgerTotais = Object.assign({enviados:0,nids:0,aprovados:0,consertos:0,pagos:0}, arqgerT);
+  state.nfFechamentos = await loadJSON('sp-nf-fechamentos', []);
+  await getMonthArr('producao', refMonth);
+  await getMonthArr('envio', refMonth);
+  await getMonthArr('nas', refMonth);
+  await getMonthArr('higienizacao', refMonth);
+  await getMonthArr('qualidade', refMonth);
+}
+async function persistMetas(){
+  await saveJSON('sp-metas', {
+    metasScanner: state.metasScanner,
+    metaHigienizacao: state.metaHigienizacao,
+    metaQualidade: state.metaQualidade,
+    metaArqger: state.metaArqger,
+    thresholds: state.thresholds
+  });
+}
+async function persistOperadores(){ await saveJSON('sp-operadores', state.operadores); }
+async function persistContrato(){
+  await saveJSON('sp-contrato', {contratoTJRJ: state.contratoTJRJ, contratoTotais: state.contratoTotais});
+}
+async function persistArqgerTotais(){ await saveJSON('sp-arqger-totais', state.arqgerTotais); }
+async function persistNF(){ await saveJSON('sp-nf-fechamentos', state.nfFechamentos); }
+
+function statusInfo(percent){
+  const t = state.thresholds;
+  if(percent < t.baixa) return {label:'Baixa', cls:'red'};
+  if(percent < t.media) return {label:'Média', cls:'amber'};
+  if(percent < t.boa) return {label:'Boa', cls:'green'};
+  return {label:'Excelente', cls:'blue'};
+}
+function statusStamp(percent){
+  const s = statusInfo(percent);
+  return `<span class="stamp ${s.cls}">${s.label}</span>`;
+}
+function barColor(cls){
+  return cls==='red'?'var(--red)':cls==='amber'?'var(--amber)':cls==='green'?'var(--green)':'var(--blue)';
+}
+function progressBar(percent){
+  const s = statusInfo(percent);
+  const w = Math.min(percent,130);
+  return `<div class="bar-outer"><div class="bar-inner" style="width:${w}%;background:${barColor(s.cls)}"></div></div>`;
+}
+
+function metaDoDia(op, entry){
+  if(op.funcao==='Digitalizador'){
+    const base = state.metasScanner[entry && entry.scanner ? entry.scanner : op.scanner] || {diaria:0,hora:0};
+    if(entry && entry.metaManual) return Number(entry.metaManual);
+    if(entry && entry.horas) return Math.round(base.hora * Number(entry.horas));
+    return base.diaria;
+  }
+  if(op.funcao==='Higienizador'){
+    if(entry && entry.metaManual) return Number(entry.metaManual);
+    return state.metaHigienizacao;
+  }
+  if(op.funcao==='Controle de Qualidade'){
+    if(entry && entry.metaManual) return Number(entry.metaManual);
+    return state.metaQualidade.finalizados;
+  }
+  return 0;
+}
+
+async function ensureMonth(type, mk){
+  if(!monthCache[type][mk]) await getMonthArr(type, mk);
+}
+
+// ---------- TAB RENDERERS ----------
+const TABS = [
+  {id:'painel', label:'Painel', color:'var(--brass)'},
+  {id:'dashboard', label:'Dashboard geral', color:'var(--coral)'},
+  {id:'contrato', label:'Contrato TJRJ', color:'var(--brass-dark)'},
+  {id:'digitalizacao', label:'Digitalização', color:'var(--teal)'},
+  {id:'arqger', label:'ArqGer (faturamento)', color:'var(--blue)'},
+  {id:'nas', label:'NAS (backup)', color:'var(--ink-faint)'},
+  {id:'higienizacao', label:'Higienização', color:'var(--green)'},
+  {id:'qualidade', label:'Qualidade', color:'var(--purple)'},
+  {id:'operadores', label:'Operadores', color:'var(--coral)'},
+  {id:'metas', label:'Metas', color:'var(--ink-faint)'},
+  {id:'fechamento', label:'Fechamento', color:'var(--red)'}
+];
+
+function renderTabs(){
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = TABS.map(t=>`<button data-tab="${t.id}" class="${currentTab===t.id?'active':''}"><span class="dot" style="background:${t.color}"></span>${t.label}</button>`).join('');
+  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{ currentTab=b.dataset.tab; render(); });
+}
+
+async function render(){
+  document.getElementById('hoje-label').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+  renderTabs();
+  const main = document.getElementById('main');
+  main.innerHTML = '<div class="empty">Carregando…</div>';
+  if(currentTab==='painel') main.innerHTML = await renderPainel();
+  else if(currentTab==='dashboard') main.innerHTML = await renderDashboardGeral();
+  else if(currentTab==='contrato') main.innerHTML = renderContrato();
+  else if(currentTab==='digitalizacao') main.innerHTML = await renderDigitalizacao();
+  else if(currentTab==='arqger') main.innerHTML = await renderArqger();
+  else if(currentTab==='nas') main.innerHTML = await renderNas();
+  else if(currentTab==='higienizacao') main.innerHTML = await renderHigienizacao();
+  else if(currentTab==='qualidade') main.innerHTML = await renderQualidade();
+  else if(currentTab==='operadores') main.innerHTML = renderOperadores();
+  else if(currentTab==='metas') main.innerHTML = renderMetas();
+  else if(currentTab==='fechamento') main.innerHTML = await renderFechamento();
+  bindHandlers();
+}
+
+// ---------- PAINEL ----------
+async function renderPainel(){
+  const mk = refMonth;
+  const prod = await getMonthArr('producao', mk);
+  const envio = await getMonthArr('envio', mk);
+  const hig = await getMonthArr('higienizacao', mk);
+  const qual = await getMonthArr('qualidade', mk);
+  const wk = weekRange(todayStr);
+
+  const digitalizadores = state.operadores.filter(o=>o.funcao==='Digitalizador' && o.ativo);
+  let totalHojeArq=0, totalMesArq=0, totalMesMeta=0;
+  const opRows = digitalizadores.map(op=>{
+    const opProd = prod.filter(p=>p.operadorId===op.id);
+    const hoje = opProd.filter(p=>p.data===todayStr).reduce((s,p)=>s+Number(p.arquivos||0),0);
+    const semana = opProd.filter(p=>inRange(p.data,wk.start,wk.end));
+    const semanaArq = semana.reduce((s,p)=>s+Number(p.arquivos||0),0);
+    const semanaMeta = semana.reduce((s,p)=>s+metaDoDia(op,p),0) || (state.metasScanner[op.scanner]?.diaria||0)*5;
+    const mesArq = opProd.reduce((s,p)=>s+Number(p.arquivos||0),0);
+    const mesMeta = opProd.reduce((s,p)=>s+metaDoDia(op,p),0);
+    const metaHoje = metaDoDia(op, opProd.find(p=>p.data===todayStr));
+    totalHojeArq += hoje; totalMesArq += mesArq; totalMesMeta += mesMeta;
+    const p = pct(mesArq, mesMeta||1);
+    return {op, hoje, metaHoje, semanaArq, semanaMeta, mesArq, mesMeta, p};
+  }).sort((a,b)=>a.p-b.p);
+
+  const envioHoje = envio.filter(e=>e.data===todayStr).reduce((s,e)=>s+Number(e.arquivos||0),0);
+  const envioSemana = envio.filter(e=>inRange(e.data,wk.start,wk.end)).reduce((s,e)=>s+Number(e.arquivos||0),0);
+  const envioMes = envio.reduce((s,e)=>s+Number(e.arquivos||0),0);
+
+  const higMes = hig.reduce((s,h)=>s+Number(h.caixas||0),0);
+  const qualMes = qual.reduce((s,q)=>s+Number(q.finalizados||0),0);
+
+  const pDia = statusInfo(pct(envioHoje, state.metaArqger.diaria));
+  const pSem = statusInfo(pct(envioSemana, state.metaArqger.semanal));
+  const pMes = statusInfo(pct(envioMes, state.metaArqger.mensal));
+
+  const imagensMetaContrato = state.contratoTJRJ.imagensMeta || (state.contratoTJRJ.processosMeta*state.contratoTJRJ.folhasMedia);
+  const pContrato = pct(state.contratoTotais.arquivos, imagensMetaContrato);
+
+  return `
+  <div class="section-title"><h2>Contrato TJRJ — Itaipava</h2>${statusStamp(pContrato)}</div>
+  <div class="card acc-brass" style="margin-bottom:20px">
+    <h3>Total digitalizado no contrato</h3>
+    <div class="big">${fmt(state.contratoTotais.arquivos)} <span class="muted" style="font-size:14px">/ ${fmt(imagensMetaContrato)} imagens</span></div>
+    ${progressBar(pContrato)}
+    <div class="small">${Math.round(pContrato)}% da meta de 4 anos · falta ${fmt(Math.max(0,imagensMetaContrato-state.contratoTotais.arquivos))}</div>
+  </div>
+
+  <div class="grid cards">
+    <div class="card acc-teal"><h3>Digitalizado hoje</h3><div class="big">${fmt(totalHojeArq)}</div><div class="small">arquivos, todos os operadores</div></div>
+    <div class="card acc-teal"><h3>Digitalizado no mês</h3><div class="big">${fmt(totalMesArq)}</div><div class="small">meta acumulada: ${fmt(totalMesMeta)}</div></div>
+    <div class="card acc-blue"><h3>Enviado ArqGer hoje</h3><div class="big">${fmt(envioHoje)}</div><div class="small">meta dia: ${fmt(state.metaArqger.diaria)} · falta ${fmt(Math.max(0,state.metaArqger.diaria-envioHoje))}</div>${progressBar(pct(envioHoje,state.metaArqger.diaria))}</div>
+    <div class="card acc-green"><h3>Caixas higienizadas (mês)</h3><div class="big">${fmt(higMes)}</div></div>
+    <div class="card acc-purple"><h3>Arquivos finalizados (mês)</h3><div class="big">${fmt(qualMes)}</div></div>
+  </div>
+
+  <div class="section-title"><h2>Envio para ArqGer (faturamento)</h2></div>
+  <div class="grid cards">
+    <div class="card acc-blue"><h3>Hoje</h3><div class="big">${fmt(envioHoje)}/${fmt(state.metaArqger.diaria)}</div>${statusStamp(pct(envioHoje,state.metaArqger.diaria))}${progressBar(pct(envioHoje,state.metaArqger.diaria))}<div class="small">falta ${fmt(Math.max(0,state.metaArqger.diaria-envioHoje))}</div></div>
+    <div class="card acc-blue"><h3>Semana</h3><div class="big">${fmt(envioSemana)}/${fmt(state.metaArqger.semanal)}</div>${statusStamp(pct(envioSemana,state.metaArqger.semanal))}${progressBar(pct(envioSemana,state.metaArqger.semanal))}<div class="small">falta ${fmt(Math.max(0,state.metaArqger.semanal-envioSemana))}</div></div>
+    <div class="card acc-blue"><h3>Mês</h3><div class="big">${fmt(envioMes)}/${fmt(state.metaArqger.mensal)}</div>${statusStamp(pct(envioMes,state.metaArqger.mensal))}${progressBar(pct(envioMes,state.metaArqger.mensal))}<div class="small">falta ${fmt(Math.max(0,state.metaArqger.mensal-envioMes))}</div></div>
+  </div>
+
+  <div class="section-title"><h2>Digitalização por operador — mês atual</h2></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Operador</th><th>Escâner</th><th class="num">Hoje</th><th class="num">Meta hoje</th><th class="num">Mês</th><th class="num">Meta mês</th><th class="num">%</th><th>Status</th></tr></thead>
+    <tbody>
+    ${opRows.length? opRows.map(r=>`
+      <tr>
+        <td>${r.op.nome}</td>
+        <td><span class="scanner-chip ${r.op.scanner}">${SCANNER_LABEL[r.op.scanner]||'-'}</span></td>
+        <td class="num">${fmt(r.hoje)}</td>
+        <td class="num">${fmt(r.metaHoje)}</td>
+        <td class="num">${fmt(r.mesArq)}</td>
+        <td class="num">${fmt(r.mesMeta)}</td>
+        <td class="num">${r.mesMeta? Math.round(r.p)+'%':'-'}</td>
+        <td>${statusStamp(r.p)}</td>
+      </tr>`).join('') : '<tr><td colspan="8" class="empty">Nenhum operador de digitalização cadastrado ainda.</td></tr>'}
+    </tbody>
+  </table>
+  </div>
+  <div class="footnote">Status: baixa &lt; ${state.thresholds.baixa}% · média &lt; ${state.thresholds.media}% · boa &lt; ${state.thresholds.boa}% · excelente ≥ ${state.thresholds.boa}%. Ajuste em Metas.</div>
+  `;
+}
+
+// ---------- CONTRATO TJRJ ----------
+function diasUteisEntre(d1,d2){
+  let count=0; const cur=new Date(d1+"T00:00:00"); const end=new Date(d2+"T00:00:00");
+  while(cur<=end){ const wd=cur.getDay(); if(wd!==0 && wd!==6) count++; cur.setDate(cur.getDate()+1); }
+  return count;
+}
+function renderContrato(){
+  const c = state.contratoTJRJ;
+  const t = state.contratoTotais;
+  const imagensMeta = c.imagensMeta || (c.processosMeta * c.folhasMedia);
+  const p = pct(t.arquivos, imagensMeta);
+  const s = statusInfo(p);
+  let prazoInfo = '';
+  if(c.dataInicio){
+    const inicio = new Date(c.dataInicio+"T00:00:00");
+    const fim = new Date(inicio); fim.setFullYear(fim.getFullYear()+Number(c.duracaoAnos||4));
+    const hojeDt = new Date(todayStr+"T00:00:00");
+    const diasUteisTotais = diasUteisEntre(c.dataInicio, fim.toISOString().slice(0,10));
+    const diasUteisRestantes = Math.max(0, diasUteisEntre(todayStr>c.dataInicio?todayStr:c.dataInicio, fim.toISOString().slice(0,10)));
+    const restante = Math.max(0, imagensMeta - t.arquivos);
+    const ritmoNecessario = diasUteisRestantes>0 ? Math.ceil(restante/diasUteisRestantes) : 0;
+    const diasCorridosRestantes = Math.max(0, Math.round((fim-hojeDt)/(1000*60*60*24)));
+    prazoInfo = `
+    <div class="grid cards">
+      <div class="card acc-brass"><h3>Prazo contratual</h3><div class="big">${fim.toLocaleDateString('pt-BR')}</div><div class="small">início em ${inicio.toLocaleDateString('pt-BR')} · ${diasCorridosRestantes} dias corridos restantes</div></div>
+      <div class="card acc-blue"><h3>Ritmo necessário</h3><div class="big">${fmt(ritmoNecessario)}</div><div class="small">imagens por dia útil, para cumprir o prazo (${fmt(diasUteisRestantes)} dias úteis restantes)</div></div>
+    </div>`;
+  } else {
+    prazoInfo = `<div class="card acc-amber" style="margin-top:14px"><h3>Data de início não definida</h3><div class="small">Informe a data do memorando de início abaixo para calcular o ritmo diário necessário e o prazo final.</div></div>`;
+  }
+  return `
+  <div class="section-title"><h2>${c.nome}</h2>${statusStamp(p)}</div>
+  <div class="grid cards">
+    <div class="card acc-brass"><h3>Imagens digitalizadas (total do contrato)</h3><div class="big">${fmt(t.arquivos)}</div><div class="small">meta: ${fmt(imagensMeta)} · ${Math.round(p)}% concluído</div>${progressBar(p)}</div>
+    <div class="card acc-teal"><h3>Processos estimados</h3><div class="big">${fmt(c.processosMeta)}</div><div class="small">média de ${fmt(c.folhasMedia)} folhas/imagens por processo</div></div>
+    <div class="card acc-coral"><h3>Caixas recebidas (total)</h3><div class="big">${fmt(t.caixas)}</div></div>
+    <div class="card acc-purple"><h3>Falta digitalizar</h3><div class="big">${fmt(Math.max(0,imagensMeta-t.arquivos))}</div><div class="small">imagens até a meta contratual</div></div>
+  </div>
+  ${prazoInfo}
+  <div class="section-title"><h2>Configurar dados do contrato</h2></div>
+  <form class="entryform" id="form-contrato">
+    <div style="grid-column:1/-1"><label>Nome / identificação do contrato</label><input type="text" name="nome" value="${c.nome}"></div>
+    <div><label>Processos (quantidade total)</label><input type="number" min="0" name="processosMeta" value="${c.processosMeta}"></div>
+    <div><label>Média de folhas por processo</label><input type="number" min="0" name="folhasMedia" value="${c.folhasMedia}"></div>
+    <div><label>Meta de imagens (auto ou manual)</label><input type="number" min="0" name="imagensMeta" value="${c.imagensMeta}"></div>
+    <div><label>Data do memorando de início</label><input type="date" name="dataInicio" value="${c.dataInicio||''}"></div>
+    <div><label>Duração do contrato (anos)</label><input type="number" min="1" name="duracaoAnos" value="${c.duracaoAnos}"></div>
+    <div><button class="btn" type="submit">Salvar</button></div>
+  </form>
+  <div class="footnote">Os totais acima somam automaticamente todos os lançamentos de digitalização feitos na aba Digitalização, desde o início do uso do sistema. A meta de imagens é calculada como processos × folhas médias, mas pode ser sobrescrita manualmente.</div>
+  `;
+}
+
+// ---------- DASHBOARD GERAL ----------
+function shiftMonth(mk, n){
+  const [y,m] = mk.split('-').map(Number);
+  const d = new Date(y, m-1+n, 1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function monthsBetween(mkStart, mkEnd){
+  const [y1,m1] = mkStart.split('-').map(Number);
+  const [y2,m2] = mkEnd.split('-').map(Number);
+  return (y2-y1)*12 + (m2-m1);
+}
+async function contratoMesesProducao(){
+  const c = state.contratoTJRJ;
+  const inicioMk = c.dataInicio ? c.dataInicio.slice(0,7) : refMonth;
+  let n = monthsBetween(inicioMk, refMonth);
+  if(n<0) n=0;
+  if(n>47) n=47; // limite de segurança (4 anos)
+  const out = [];
+  for(let i=0;i<=n;i++){
+    const mk = shiftMonth(inicioMk, i);
+    const arr = await getMonthArr('producao', mk);
+    out.push({mk, total: arr.reduce((s,p)=>s+Number(p.arquivos||0),0)});
+  }
+  return out;
+}
+function monthLabel(mk){
+  const [y,m] = mk.split('-');
+  const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return nomes[Number(m)-1]+'/'+y.slice(2);
+}
+async function renderDashboardGeral(){
+  const mk = refMonth;
+  const prod = await getMonthArr('producao', mk);
+  const digitalizadores = state.operadores.filter(o=>o.funcao==='Digitalizador' && o.ativo);
+  const ranking = digitalizadores.map(op=>{
+    const regs = prod.filter(p=>p.operadorId===op.id);
+    const total = regs.reduce((s,p)=>s+Number(p.arquivos||0),0);
+    const meta = regs.reduce((s,p)=>s+metaDoDia(op,p),0);
+    return {op, total, meta, p: pct(total, meta||1)};
+  }).sort((a,b)=>b.p-a.p);
+
+  const c = state.contratoTJRJ;
+  const imagensMetaContrato = c.imagensMeta || (c.processosMeta*c.folhasMedia);
+  const totalMeses = Math.max(1, Number(c.duracaoAnos||4)*12);
+  const metaMensal = imagensMetaContrato/totalMeses;
+  const evol = await contratoMesesProducao();
+  const maxEvol = Math.max(1, metaMensal, ...evol.map(e=>e.total));
+
+  const t = state.arqgerTotais;
+  const pContrato = pct(state.contratoTotais.arquivos, imagensMetaContrato);
+  const pEnviado = pct(t.enviados, imagensMetaContrato);
+  const pPago = pct(t.pagos, imagensMetaContrato);
+
+  return `
+  <div class="section-title"><h2>Linha do tempo do contrato TJRJ — ${c.dataInicio?new Date(c.dataInicio+"T00:00:00").toLocaleDateString('pt-BR'):'início não definido'} + ${c.duracaoAnos} anos</h2>${statusStamp(pContrato)}</div>
+  <div class="grid cards">
+    <div class="card acc-brass"><h3>Digitalizado (total)</h3><div class="big">${fmt(state.contratoTotais.arquivos)}</div><div class="small">${Math.round(pContrato)}% de ${fmt(imagensMetaContrato)}</div>${progressBar(pContrato)}</div>
+    <div class="card acc-blue"><h3>Enviado ao ArqGer (total)</h3><div class="big">${fmt(t.enviados)}</div><div class="small">${Math.round(pEnviado)}% de ${fmt(imagensMetaContrato)}</div>${progressBar(pEnviado)}</div>
+    <div class="card acc-green"><h3>Pago (total)</h3><div class="big">${fmt(t.pagos)}</div><div class="small">${Math.round(pPago)}% de ${fmt(imagensMetaContrato)}</div>${progressBar(pPago)}</div>
+  </div>
+
+  <div class="section-title"><h2>Evolução mensal desde o início do contrato</h2></div>
+  <div class="card" style="padding:20px 16px 10px;overflow-x:auto;">
+    <div style="display:flex;align-items:flex-end;gap:14px;height:150px;min-width:${evol.length*64}px;">
+      ${evol.map(e=>{
+        const acimaMeta = e.total >= metaMensal;
+        return `
+        <div style="flex:none;width:50px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+          <div class="mono" style="font-size:10.5px;color:var(--ink-soft);margin-bottom:4px;">${fmt(e.total)}</div>
+          <div style="width:100%;background:${acimaMeta?'var(--green)':'var(--coral)'};border-radius:6px 6px 0 0;height:${Math.max(4,(e.total/maxEvol)*100)}%;"></div>
+          <div style="font-size:10.5px;color:var(--ink-faint);margin-top:6px;">${monthLabel(e.mk)}</div>
+        </div>`;}).join('')}
+    </div>
+    <div class="footnote">Meta de referência por mês: ${fmt(Math.round(metaMensal))} imagens (${fmt(imagensMetaContrato)} ÷ ${totalMeses} meses). Verde = acima da meta do mês, laranja = abaixo.</div>
+  </div>
+
+  <div class="section-title"><h2>Funil de faturamento ArqGer (acumulado)</h2></div>
+  <div class="card">
+    ${[
+      {label:'Enviados', val:t.enviados, color:'var(--blue)'},
+      {label:'Aprovados', val:t.aprovados, color:'var(--green)'},
+      {label:'Em conserto', val:t.consertos, color:'var(--red)'},
+      {label:'Pagos', val:t.pagos, color:'var(--brass)'}
+    ].map(f=>`
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px;"><span>${f.label}</span><span class="mono">${fmt(f.val)}</span></div>
+        <div class="bar-outer"><div class="bar-inner" style="width:${Math.min(100,(f.val/Math.max(1,t.enviados))*100)}%;background:${f.color}"></div></div>
+      </div>`).join('')}
+  </div>
+
+  <div class="section-title"><h2>Ranking de operadores — mês atual</h2></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>#</th><th>Operador</th><th>Escâner</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    ${ranking.length?ranking.map((r,i)=>`
+      <tr>
+        <td class="mono">${i+1}</td>
+        <td>${r.op.nome}</td>
+        <td><span class="scanner-chip ${r.op.scanner}">${SCANNER_LABEL[r.op.scanner]||'-'}</span></td>
+        <td class="num">${r.meta?Math.round(r.p)+'%':'-'}</td>
+        <td>${statusStamp(r.p)}</td>
+        <td style="min-width:120px">${progressBar(r.p)}</td>
+      </tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum operador de digitalização cadastrado ainda.</td></tr>'}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+// ---------- DIGITALIZAÇÃO ----------
+async function renderDigitalizacao(){
+  const mk = refMonth;
+  const prod = await getMonthArr('producao', mk);
+  const digitalizadores = state.operadores.filter(o=>o.funcao==='Digitalizador' && o.ativo);
+  const opts = digitalizadores.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  const scannerOpts = SCANNERS.map(s=>`<option value="${s}">${SCANNER_LABEL[s]}</option>`).join('');
+
+  const rows = prod.slice().sort((a,b)=>b.data.localeCompare(a.data)).map(p=>{
+    const op = state.operadores.find(o=>o.id===p.operadorId);
+    const meta = metaDoDia(op||{funcao:'Digitalizador',scanner:p.scanner}, p);
+    return {p, op, meta};
+  });
+
+  return `
+  <div class="section-title"><h2>Lançar produção diária</h2></div>
+  <form class="entryform" id="form-prod">
+    <div><label>Operador</label><select name="operadorId" required>${digitalizadores.length?opts:'<option value="">Cadastre um operador</option>'}</select></div>
+    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
+    <div><label>Escâner usado</label><select name="scanner">${scannerOpts}</select></div>
+    <div><label>Arquivos digitalizados</label><input type="number" name="arquivos" min="0" required></div>
+    <div><label>Caixas</label><input type="number" name="caixas" min="0"></div>
+    <div><label>NID</label><input type="number" name="nid" min="0"></div>
+    <div><label>Horas trabalhadas (opcional)</label><input type="number" name="horas" min="0" step="0.5"></div>
+    <div><label>Meta ajustada hoje (opcional)</label><input type="number" name="metaManual" min="0" placeholder="ex: higienização no dia"></div>
+    <div style="grid-column:1/-1"><label>Observação</label><input type="text" name="obs" placeholder="ex: operador fez higienização parte do dia"></div>
+    <div><button class="btn" type="submit">Lançar</button></div>
+  </form>
+
+  <div class="section-title"><h2>Lançamentos do mês</h2><span class="muted">${rows.length} registro(s)</span></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Data</th><th>Operador</th><th>Escâner</th><th class="num">Arquivos</th><th class="num">Caixas</th><th class="num">NID</th><th class="num">Meta</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    ${rows.length? rows.map(r=>`
+      <tr>
+        <td>${r.p.data.split('-').reverse().join('/')}</td>
+        <td>${r.op?r.op.nome:'(removido)'}</td>
+        <td><span class="scanner-chip ${r.p.scanner}">${SCANNER_LABEL[r.p.scanner]||'-'}</span></td>
+        <td class="num">${fmt(r.p.arquivos)}</td>
+        <td class="num">${fmt(r.p.caixas)}</td>
+        <td class="num">${fmt(r.p.nid)}</td>
+        <td class="num">${fmt(r.meta)}</td>
+        <td class="num">${r.meta?Math.round(pct(r.p.arquivos,r.meta))+'%':'-'}</td>
+        <td>${statusStamp(pct(r.p.arquivos,r.meta))}</td>
+        <td><button class="btn ghost" data-del-prod="${r.p.id}">Excluir</button></td>
+      </tr>`).join(''):'<tr><td colspan="10" class="empty">Nenhum lançamento neste mês ainda.</td></tr>'}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+// ---------- ARQGER (FATURAMENTO) ----------
+async function renderArqger(){
+  const mk = refMonth;
+  const envio = await getMonthArr('envio', mk);
+  const rows = envio.slice().sort((a,b)=>b.data.localeCompare(a.data));
+  const t = state.arqgerTotais;
+  const imagensMetaContrato = state.contratoTJRJ.imagensMeta || (state.contratoTJRJ.processosMeta*state.contratoTJRJ.folhasMedia);
+  const faltamEnviar = Math.max(0, imagensMetaContrato - t.enviados);
+  const faltamPagar = Math.max(0, imagensMetaContrato - t.pagos);
+  const pEnviado = pct(t.enviados, imagensMetaContrato);
+  const pPago = pct(t.pagos, imagensMetaContrato);
+  const consertoPct = t.enviados? Math.round((t.consertos/t.enviados)*100):0;
+  const enviadoHoje = rows.filter(r=>r.data===todayStr).reduce((s,r)=>s+Number(r.arquivos||0),0);
+  const enviadoMes = rows.reduce((s,r)=>s+Number(r.arquivos||0),0);
+
+  const nfDoMes = state.nfFechamentos.find(f=>f.mes===mk);
+  const nfOrdenados = state.nfFechamentos.slice().sort((a,b)=>b.mes.localeCompare(a.mes));
+
+  return `
+  <div class="section-title"><h2>Total já enviado ao ArqGer (acumulado do contrato)</h2></div>
+  <div class="card acc-blue" style="margin-bottom:14px">
+    <h3>Imagens enviadas</h3>
+    <div class="big">${fmt(t.enviados)} <span class="muted" style="font-size:14px">/ ${fmt(imagensMetaContrato)}</span></div>
+    ${progressBar(pEnviado)}
+    <div class="small">${Math.round(pEnviado)}% do contrato já enviado · faltam enviar ${fmt(faltamEnviar)} imagens</div>
+  </div>
+  <div class="grid cards">
+    <div class="card acc-teal"><h3>Enviado hoje</h3><div class="big">${fmt(enviadoHoje)}</div><div class="small">meta dia: ${fmt(state.metaArqger.diaria)}</div></div>
+    <div class="card acc-teal"><h3>Enviado no mês</h3><div class="big">${fmt(enviadoMes)}</div><div class="small">meta mês: ${fmt(state.metaArqger.mensal)}</div></div>
+    <div class="card acc-coral"><h3>NIDs / processos enviados</h3><div class="big">${fmt(t.nids)}</div><div class="small">cada NID corresponde a 1 processo</div></div>
+    <div class="card acc-red"><h3>Em conserto (acumulado)</h3><div class="big">${fmt(t.consertos)}</div><div class="small">${consertoPct}% do enviado</div></div>
+  </div>
+
+  <div class="section-title"><h2>Lançar movimentação do dia</h2></div>
+  <form class="entryform" id="form-envio">
+    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
+    <div><label>Responsável (opcional)</label><input type="text" name="responsavel" placeholder="quem enviou"></div>
+    <div><label>Arquivos enviados (imagens)</label><input type="number" name="arquivos" min="0" required></div>
+    <div><label>NIDs enviados (processos)</label><input type="number" name="nids" min="0"></div>
+    <div><label>Caixas referentes</label><input type="number" name="caixas" min="0"></div>
+    <div><label>Aprovados hoje</label><input type="number" name="aprovados" min="0"></div>
+    <div><label>Em conserto hoje</label><input type="number" name="consertos" min="0"></div>
+    <div><button class="btn" type="submit">Lançar</button></div>
+  </form>
+
+  <div class="section-title"><h2>Histórico do mês</h2></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Data</th><th>Responsável</th><th class="num">Arquivos</th><th class="num">NIDs</th><th class="num">Caixas</th><th class="num">Aprovados</th><th class="num">Consertos</th><th></th></tr></thead>
+    <tbody>
+    ${rows.length?rows.map(r=>`
+      <tr>
+        <td>${r.data.split('-').reverse().join('/')}</td>
+        <td>${r.responsavel||'-'}</td>
+        <td class="num">${fmt(r.arquivos)}</td>
+        <td class="num">${fmt(r.nids)}</td>
+        <td class="num">${fmt(r.caixas)}</td>
+        <td class="num">${fmt(r.aprovados)}</td>
+        <td class="num">${fmt(r.consertos)}</td>
+        <td><button class="btn ghost" data-del-envio="${r.id}">Excluir</button></td>
+      </tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhum envio lançado neste mês ainda.</td></tr>'}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="section-title"><h2>Pagamento e Nota Fiscal — fechamento mensal</h2></div>
+  <div class="card acc-brass" style="margin-bottom:14px">
+    <h3>Total já pago (acumulado)</h3>
+    <div class="big">${fmt(t.pagos)} <span class="muted" style="font-size:14px">/ ${fmt(imagensMetaContrato)}</span></div>
+    ${progressBar(pPago)}
+    <div class="small">${Math.round(pPago)}% do contrato já pago · faltam pagar ${fmt(faltamPagar)} imagens</div>
+  </div>
+  ${nfDoMes?`<div class="card acc-green" style="margin-bottom:14px"><h3>Faturamento de ${mk.split('-').reverse().join('/')} já fechado</h3><div class="big">${fmt(nfDoMes.imagensPagas)} imagens</div><div class="small">NF nº ${nfDoMes.numeroNF||'-'} · fechado em ${nfDoMes.dataFechamento}</div></div>`:`
+  <form class="entryform" id="form-nf">
+    <div><label>Mês de referência</label><input type="text" value="${mk.split('-').reverse().join('/')}" disabled></div>
+    <div><label>Imagens pagas no mês</label><input type="number" name="imagensPagas" min="0" required></div>
+    <div><label>Número da Nota Fiscal</label><input type="text" name="numeroNF" placeholder="ex: 001234"></div>
+    <div><label>Data do fechamento</label><input type="date" name="dataFechamento" value="${todayStr}"></div>
+    <div><button class="btn" type="submit">Fechar faturamento do mês</button></div>
+  </form>
+  <div class="footnote">Feche até o dia 30 de cada mês. Ao fechar, o valor é somado ao total pago e abatido dos 20.000.000 do contrato.</div>`}
+
+  ${nfOrdenados.length?`
+  <div class="section-title"><h2>Histórico de fechamentos de NF</h2></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Mês</th><th class="num">Imagens pagas</th><th>Nº NF</th><th>Fechado em</th></tr></thead>
+    <tbody>
+    ${nfOrdenados.map(f=>`<tr><td>${f.mes.split('-').reverse().join('/')}</td><td class="num">${fmt(f.imagensPagas)}</td><td>${f.numeroNF||'-'}</td><td>${f.dataFechamento}</td></tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`:''}
+  <div class="footnote">Este fluxo é o de faturamento: arquivos finalizados na Qualidade são enviados ao ArqGer, depois aprovados ou devolvidos para conserto. O recebimento é por imagem enviada/finalizada e é fechado mensalmente com Nota Fiscal. O envio ao NAS é apenas backup interno e fica em aba separada.</div>`;
+}
+
+// ---------- NAS (BACKUP) ----------
+async function renderNas(){
+  const mk = refMonth;
+  const nas = await getMonthArr('nas', mk);
+  const rows = nas.slice().sort((a,b)=>b.data.localeCompare(a.data));
+  const mesTotal = nas.reduce((s,r)=>s+Number(r.arquivos||0),0);
+  return `
+  <div class="section-title"><h2>Backup de segurança (NAS interno)</h2></div>
+  <div class="grid cards">
+    <div class="card acc-blue"><h3>Enviado ao NAS este mês</h3><div class="big">${fmt(mesTotal)}</div><div class="small">apenas cópia de segurança, sem meta de faturamento</div></div>
+  </div>
+
+  <div class="section-title"><h2>Lançar envio ao NAS</h2></div>
+  <form class="entryform" id="form-nas">
+    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
+    <div><label>Responsável (opcional)</label><input type="text" name="responsavel" placeholder="quem enviou"></div>
+    <div><label>Arquivos enviados</label><input type="number" name="arquivos" min="0" required></div>
+    <div><button class="btn" type="submit">Lançar</button></div>
+  </form>
+
+  <div class="section-title"><h2>Histórico do mês</h2></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Data</th><th>Responsável</th><th class="num">Arquivos</th><th></th></tr></thead>
+    <tbody>
+    ${rows.length?rows.map(r=>`
+      <tr>
+        <td>${r.data.split('-').reverse().join('/')}</td>
+        <td>${r.responsavel||'-'}</td>
+        <td class="num">${fmt(r.arquivos)}</td>
+        <td><button class="btn ghost" data-del-nas="${r.id}">Excluir</button></td>
+      </tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum envio lançado neste mês ainda.</td></tr>'}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+// ---------- HIGIENIZAÇÃO ----------
+async function renderHigienizacao(){
+  const mk = refMonth;
+  const hig = await getMonthArr('higienizacao', mk);
+  const equipe = state.operadores.filter(o=>o.funcao==='Higienizador' && o.ativo);
+  const opts = equipe.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  const rows = hig.slice().sort((a,b)=>b.data.localeCompare(a.data)).map(h=>({h, op:state.operadores.find(o=>o.id===h.operadorId)}));
+
+  return `
+  <div class="section-title"><h2>Lançar higienização diária</h2></div>
+  <form class="entryform" id="form-hig">
+    <div><label>Operador</label><select name="operadorId" required>${equipe.length?opts:'<option value="">Cadastre um higienizador</option>'}</select></div>
+    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
+    <div><label>Caixas higienizadas</label><input type="number" name="caixas" min="0" required></div>
+    <div><label>Meta ajustada hoje (opcional)</label><input type="number" name="metaManual" min="0"></div>
+    <div><button class="btn" type="submit">Lançar</button></div>
+  </form>
+  <div class="section-title"><h2>Lançamentos do mês</h2></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Data</th><th>Operador</th><th class="num">Caixas</th><th class="num">Meta</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    ${rows.length?rows.map(r=>{
+      const meta = r.h.metaManual?Number(r.h.metaManual):state.metaHigienizacao;
+      return `<tr>
+        <td>${r.h.data.split('-').reverse().join('/')}</td>
+        <td>${r.op?r.op.nome:'(removido)'}</td>
+        <td class="num">${fmt(r.h.caixas)}</td>
+        <td class="num">${fmt(meta)}</td>
+        <td class="num">${Math.round(pct(r.h.caixas,meta))}%</td>
+        <td>${statusStamp(pct(r.h.caixas,meta))}</td>
+        <td><button class="btn ghost" data-del-hig="${r.h.id}">Excluir</button></td>
+      </tr>`;}).join(''):'<tr><td colspan="7" class="empty">Nenhum lançamento neste mês ainda.</td></tr>'}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+// ---------- QUALIDADE ----------
+async function renderQualidade(){
+  const mk = refMonth;
+  const qual = await getMonthArr('qualidade', mk);
+  const equipe = state.operadores.filter(o=>o.funcao==='Controle de Qualidade' && o.ativo);
+  const opts = equipe.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  const rows = qual.slice().sort((a,b)=>b.data.localeCompare(a.data)).map(q=>({q, op:state.operadores.find(o=>o.id===q.operadorId)}));
+
+  return `
+  <div class="section-title"><h2>Lançar controle de qualidade diário</h2></div>
+  <form class="entryform" id="form-qual">
+    <div><label>Operador</label><select name="operadorId" required>${equipe.length?opts:'<option value="">Cadastre um operador de qualidade</option>'}</select></div>
+    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
+    <div><label>Arquivos conferidos (QC)</label><input type="number" name="arquivosQC" min="0" required></div>
+    <div><label>Finalizados p/ envio</label><input type="number" name="finalizados" min="0" required></div>
+    <div><label>Com certificado digital</label><input type="number" name="certificado" min="0"></div>
+    <div><label>Ocerizados</label><input type="number" name="ocerizado" min="0"></div>
+    <div><label>PDF/A unitário</label><input type="number" name="pdfA" min="0"></div>
+    <div><label>Meta ajustada hoje (opcional)</label><input type="number" name="metaManual" min="0"></div>
+    <div><button class="btn" type="submit">Lançar</button></div>
+  </form>
+  <div class="section-title"><h2>Lançamentos do mês</h2></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Data</th><th>Operador</th><th>Servidor</th><th class="num">QC</th><th class="num">Finalizados</th><th class="num">Certificado</th><th class="num">OCR</th><th class="num">PDF/A</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    ${rows.length?rows.map(r=>{
+      const meta = r.q.metaManual?Number(r.q.metaManual):state.metaQualidade.finalizados;
+      return `<tr>
+        <td>${r.q.data.split('-').reverse().join('/')}</td>
+        <td>${r.op?r.op.nome:'(removido)'}</td>
+        <td>${r.op&&r.op.servidor?`<span class="scanner-chip ${r.op.servidor}">${SERVIDOR_LABEL[r.op.servidor]}</span>`:'-'}</td>
+        <td class="num">${fmt(r.q.arquivosQC)}</td>
+        <td class="num">${fmt(r.q.finalizados)}</td>
+        <td class="num">${fmt(r.q.certificado)}</td>
+        <td class="num">${fmt(r.q.ocerizado)}</td>
+        <td class="num">${fmt(r.q.pdfA)}</td>
+        <td class="num">${Math.round(pct(r.q.finalizados,meta))}%</td>
+        <td>${statusStamp(pct(r.q.finalizados,meta))}</td>
+        <td><button class="btn ghost" data-del-qual="${r.q.id}">Excluir</button></td>
+      </tr>`;}).join(''):'<tr><td colspan="11" class="empty">Nenhum lançamento neste mês ainda.</td></tr>'}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+// ---------- OPERADORES ----------
+function renderOperadores(){
+  const ativos = state.operadores.filter(o=>o.ativo);
+  const inativos = state.operadores.filter(o=>!o.ativo);
+  const scannerField = `<div id="scanner-field"><label>Escâner atual</label><select name="scanner">${SCANNERS.map(s=>`<option value="${s}">${SCANNER_LABEL[s]}</option>`).join('')}</select></div>`;
+  const servidorField = `<div id="servidor-field" style="display:none"><label>Servidor de trabalho</label><select name="servidor">${SERVIDORES.map(s=>`<option value="${s}">${SERVIDOR_LABEL[s]}</option>`).join('')}</select></div>`;
+  return `
+  <div class="section-title"><h2>Cadastrar operador</h2></div>
+  <form class="entryform" id="form-op">
+    <div><label>Nome</label><input type="text" name="nome" required placeholder="nome completo"></div>
+    <div><label>Contato</label><input type="text" name="contato" placeholder="whatsapp / telefone"></div>
+    <div><label>Função</label><select name="funcao" id="funcao-select">${FUNCOES.map(f=>`<option value="${f}">${f}</option>`).join('')}</select></div>
+    ${scannerField}
+    ${servidorField}
+    <div><button class="btn" type="submit">Cadastrar</button></div>
+  </form>
+
+  <div class="section-title"><h2>Ativos</h2><span class="muted">${ativos.length} operador(es)</span></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Nome</th><th>Função</th><th>Escâner / Servidor</th><th>Contato</th><th></th></tr></thead>
+    <tbody>
+    ${ativos.length?ativos.map(o=>{
+      let recurso = '-';
+      if(o.funcao==='Digitalizador') recurso = `<select data-change-scanner="${o.id}">${SCANNERS.map(s=>`<option value="${s}" ${o.scanner===s?'selected':''}>${SCANNER_LABEL[s]}</option>`).join('')}</select>`;
+      else if(o.funcao==='Controle de Qualidade') recurso = `<select data-change-servidor="${o.id}">${SERVIDORES.map(s=>`<option value="${s}" ${o.servidor===s?'selected':''}>${SERVIDOR_LABEL[s]}</option>`).join('')}</select>`;
+      return `
+      <tr>
+        <td>${o.nome}</td>
+        <td><span class="tag">${o.funcao}</span></td>
+        <td>${recurso}</td>
+        <td>${o.contato||'-'}</td>
+        <td class="rowflex"><button class="btn ghost" data-deactivate="${o.id}">Desativar</button></td>
+      </tr>`;}).join(''):'<tr><td colspan="5" class="empty">Nenhum operador cadastrado ainda.</td></tr>'}
+    </tbody>
+  </table>
+  </div>
+
+  ${inativos.length?`
+  <div class="section-title"><h2>Inativos / desligados</h2></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Nome</th><th>Função</th><th>Desde</th><th></th></tr></thead>
+    <tbody>
+    ${inativos.map(o=>`<tr><td>${o.nome}</td><td>${o.funcao}</td><td>${o.dataDesativacao||'-'}</td>
+      <td class="rowflex"><button class="btn ghost" data-reactivate="${o.id}">Reativar</button><button class="btn danger" data-remove="${o.id}">Excluir</button></td></tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`:''}
+  `;
+}
+
+// ---------- METAS ----------
+function renderMetas(){
+  return `
+  <div class="section-title"><h2>Metas por escâner</h2></div>
+  <form class="entryform" id="form-metas-scanner">
+    ${SCANNERS.map(s=>`
+      <div>
+        <label>${SCANNER_LABEL[s]} — meta diária</label>
+        <input type="number" min="0" name="d-${s}" value="${state.metasScanner[s].diaria}">
+      </div>
+      <div>
+        <label>${SCANNER_LABEL[s]} — meta por hora</label>
+        <input type="number" min="0" name="h-${s}" value="${state.metasScanner[s].hora}">
+      </div>
+    `).join('')}
+    <div><button class="btn" type="submit">Salvar metas de escâner</button></div>
+  </form>
+
+  <div class="section-title"><h2>Metas de higienização e qualidade</h2></div>
+  <form class="entryform" id="form-metas-outras">
+    <div><label>Higienização — caixas/dia por pessoa</label><input type="number" min="0" name="metaHig" value="${state.metaHigienizacao}"></div>
+    <div><label>Qualidade — arquivos QC/dia</label><input type="number" min="0" name="metaQC" value="${state.metaQualidade.qc}"></div>
+    <div><label>Qualidade — finalizados/dia</label><input type="number" min="0" name="metaFin" value="${state.metaQualidade.finalizados}"></div>
+    <div><button class="btn" type="submit">Salvar</button></div>
+  </form>
+
+  <div class="section-title"><h2>Metas de envio ArqGer (faturamento)</h2></div>
+  <form class="entryform" id="form-metas-arqger">
+    <div><label>Meta diária</label><input type="number" min="0" name="d" value="${state.metaArqger.diaria}"></div>
+    <div><label>Meta semanal</label><input type="number" min="0" name="s" value="${state.metaArqger.semanal}"></div>
+    <div><label>Meta mensal</label><input type="number" min="0" name="m" value="${state.metaArqger.mensal}"></div>
+    <div><button class="btn" type="submit">Salvar</button></div>
+  </form>
+
+  <div class="section-title"><h2>Faixas de status (% da meta)</h2></div>
+  <form class="entryform" id="form-thresholds">
+    <div><label>Abaixo de → Baixa</label><input type="number" min="0" max="100" name="baixa" value="${state.thresholds.baixa}"></div>
+    <div><label>Abaixo de → Média</label><input type="number" min="0" max="150" name="media" value="${state.thresholds.media}"></div>
+    <div><label>Abaixo de → Boa (acima é Excelente)</label><input type="number" min="0" max="200" name="boa" value="${state.thresholds.boa}"></div>
+    <div><button class="btn" type="submit">Salvar faixas</button></div>
+  </form>
+  <div class="footnote">Alterar metas aqui vale para lançamentos futuros. Lançamentos já registrados guardam a meta que estava valendo no dia (ou a meta ajustada manualmente naquele lançamento), então o histórico não muda retroativamente.</div>
+  `;
+}
+
+// ---------- FECHAMENTO ----------
+async function renderFechamento(){
+  const mk = refMonth;
+  const prod = await getMonthArr('producao', mk);
+  const hig = await getMonthArr('higienizacao', mk);
+  const qual = await getMonthArr('qualidade', mk);
+  const envio = await getMonthArr('envio', mk);
+  const nas = await getMonthArr('nas', mk);
+  const jaFechado = state.fechamentos.find(f=>f.mes===mk);
+
+  const porOperador = state.operadores.map(op=>{
+    let total=0, meta=0, extra={};
+    if(op.funcao==='Digitalizador'){
+      const regs = prod.filter(p=>p.operadorId===op.id);
+      total = regs.reduce((s,p)=>s+Number(p.arquivos||0),0);
+      meta = regs.reduce((s,p)=>s+metaDoDia(op,p),0);
+      extra.caixas = regs.reduce((s,p)=>s+Number(p.caixas||0),0);
+      extra.nid = regs.reduce((s,p)=>s+Number(p.nid||0),0);
+    } else if(op.funcao==='Higienizador'){
+      const regs = hig.filter(h=>h.operadorId===op.id);
+      total = regs.reduce((s,h)=>s+Number(h.caixas||0),0);
+      meta = regs.reduce((s,h)=>s+(h.metaManual?Number(h.metaManual):state.metaHigienizacao),0);
+    } else {
+      const regs = qual.filter(q=>q.operadorId===op.id);
+      total = regs.reduce((s,q)=>s+Number(q.finalizados||0),0);
+      meta = regs.reduce((s,q)=>s+(q.metaManual?Number(q.metaManual):state.metaQualidade.finalizados),0);
+    }
+    return {op, total, meta, extra, p: pct(total,meta||1)};
+  }).filter(r=>r.meta>0 || r.total>0);
+
+  const envioMes = envio.reduce((s,e)=>s+Number(e.arquivos||0),0);
+  const aprovadosMes = envio.reduce((s,e)=>s+Number(e.aprovados||0),0);
+  const nfDoMesFech = state.nfFechamentos.find(f=>f.mes===mk);
+  const pagosMes = nfDoMesFech ? Number(nfDoMesFech.imagensPagas||0) : 0;
+  const nasMes = nas.reduce((s,e)=>s+Number(e.arquivos||0),0);
+
+  return `
+  <div class="section-title"><h2>Fechamento mensal — ${mk.split('-').reverse().join('/')}</h2>
+    ${jaFechado?`<span class="stamp green">Mês fechado</span>`:`<button class="btn" id="btn-fechar-mes">Fechar mês</button>`}
+  </div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Operador</th><th>Função</th><th class="num">Total</th><th class="num">Meta</th><th class="num">%</th><th>Status</th></tr></thead>
+    <tbody>
+    ${porOperador.length?porOperador.map(r=>`
+      <tr>
+        <td>${r.op.nome}</td>
+        <td>${r.op.funcao}</td>
+        <td class="num">${fmt(r.total)}</td>
+        <td class="num">${fmt(r.meta)}</td>
+        <td class="num">${Math.round(r.p)}%</td>
+        <td>${statusStamp(r.p)}</td>
+      </tr>`).join(''):'<tr><td colspan="6" class="empty">Sem lançamentos neste mês.</td></tr>'}
+    </tbody>
+  </table>
+  </div>
+  <div class="divider"></div>
+  <div class="grid cards">
+    <div class="card acc-blue"><h3>Enviado ArqGer no mês</h3><div class="big">${fmt(envioMes)}</div></div>
+    <div class="card acc-green"><h3>Aprovados no mês</h3><div class="big">${fmt(aprovadosMes)}</div></div>
+    <div class="card acc-brass"><h3>Pagos no mês (NF)</h3><div class="big">${fmt(pagosMes)}</div>${!nfDoMesFech?`<div class="small">faturamento ainda não fechado</div>`:''}</div>
+    <div class="card acc-teal"><h3>Backup NAS no mês</h3><div class="big">${fmt(nasMes)}</div></div>
+  </div>
+  ${state.fechamentos.length?`
+  <div class="section-title"><h2>Meses fechados</h2></div>
+  <div class="tablewrap"><table><thead><tr><th>Mês</th><th>Data do fechamento</th></tr></thead><tbody>
+  ${state.fechamentos.slice().sort((a,b)=>b.mes.localeCompare(a.mes)).map(f=>`<tr><td>${f.mes.split('-').reverse().join('/')}</td><td>${f.dataFechamento}</td></tr>`).join('')}
+  </tbody></table></div>`:''}
+  `;
+}
+
+// ---------- HANDLERS ----------
+function bindHandlers(){
+  const main = document.getElementById('main');
+
+  const formProd = document.getElementById('form-prod');
+  if(formProd) formProd.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formProd);
+    const entry = {
+      id: uid(), operadorId: fd.get('operadorId'), data: fd.get('data'),
+      scanner: fd.get('scanner'), arquivos: Number(fd.get('arquivos')||0),
+      caixas: Number(fd.get('caixas')||0), nid: Number(fd.get('nid')||0),
+      horas: fd.get('horas')?Number(fd.get('horas')):null,
+      metaManual: fd.get('metaManual')?Number(fd.get('metaManual')):null,
+      obs: fd.get('obs')||''
+    };
+    if(!entry.operadorId){ toast('Cadastre um operador primeiro.'); return; }
+    const mk = monthKey(entry.data);
+    const arr = await getMonthArr('producao', mk);
+    arr.push(entry);
+    await saveMonthArr('producao', mk);
+    state.contratoTotais.arquivos += entry.arquivos;
+    state.contratoTotais.caixas += entry.caixas;
+    state.contratoTotais.nid += entry.nid;
+    await persistContrato();
+    toast('Produção lançada.');
+    render();
+  };
+
+  const formEnvio = document.getElementById('form-envio');
+  if(formEnvio) formEnvio.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formEnvio);
+    const entry = {id:uid(), data:fd.get('data'), responsavel:fd.get('responsavel')||'',
+      arquivos:Number(fd.get('arquivos')||0), nids:Number(fd.get('nids')||0), caixas:Number(fd.get('caixas')||0),
+      aprovados:Number(fd.get('aprovados')||0), consertos:Number(fd.get('consertos')||0)};
+    const mk = monthKey(entry.data);
+    const arr = await getMonthArr('envio', mk);
+    arr.push(entry);
+    await saveMonthArr('envio', mk);
+    state.arqgerTotais.enviados += entry.arquivos;
+    state.arqgerTotais.nids += entry.nids;
+    state.arqgerTotais.aprovados += entry.aprovados;
+    state.arqgerTotais.consertos += entry.consertos;
+    await persistArqgerTotais();
+    toast('Envio lançado.');
+    render();
+  };
+
+  const formNF = document.getElementById('form-nf');
+  if(formNF) formNF.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formNF);
+    const fechamento = {
+      mes: refMonth,
+      imagensPagas: Number(fd.get('imagensPagas')||0),
+      numeroNF: fd.get('numeroNF')||'',
+      dataFechamento: fd.get('dataFechamento')||todayStr
+    };
+    state.nfFechamentos.push(fechamento);
+    state.arqgerTotais.pagos += fechamento.imagensPagas;
+    await persistNF();
+    await persistArqgerTotais();
+    toast('Faturamento do mês fechado.');
+    render();
+  };
+
+  const formNas = document.getElementById('form-nas');
+  if(formNas) formNas.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formNas);
+    const entry = {id:uid(), data:fd.get('data'), responsavel:fd.get('responsavel')||'', arquivos:Number(fd.get('arquivos')||0)};
+    const mk = monthKey(entry.data);
+    const arr = await getMonthArr('nas', mk);
+    arr.push(entry);
+    await saveMonthArr('nas', mk);
+    toast('Backup lançado.');
+    render();
+  };
+
+  const formHig = document.getElementById('form-hig');
+  if(formHig) formHig.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formHig);
+    if(!fd.get('operadorId')){ toast('Cadastre um higienizador primeiro.'); return; }
+    const entry = {id:uid(), operadorId:fd.get('operadorId'), data:fd.get('data'), caixas:Number(fd.get('caixas')||0), metaManual: fd.get('metaManual')?Number(fd.get('metaManual')):null};
+    const mk = monthKey(entry.data);
+    const arr = await getMonthArr('higienizacao', mk);
+    arr.push(entry);
+    await saveMonthArr('higienizacao', mk);
+    toast('Higienização lançada.');
+    render();
+  };
+
+  const formQual = document.getElementById('form-qual');
+  if(formQual) formQual.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formQual);
+    if(!fd.get('operadorId')){ toast('Cadastre um operador de qualidade primeiro.'); return; }
+    const entry = {id:uid(), operadorId:fd.get('operadorId'), data:fd.get('data'),
+      arquivosQC:Number(fd.get('arquivosQC')||0), finalizados:Number(fd.get('finalizados')||0),
+      certificado:Number(fd.get('certificado')||0), ocerizado:Number(fd.get('ocerizado')||0),
+      pdfA:Number(fd.get('pdfA')||0), metaManual: fd.get('metaManual')?Number(fd.get('metaManual')):null};
+    const mk = monthKey(entry.data);
+    const arr = await getMonthArr('qualidade', mk);
+    arr.push(entry);
+    await saveMonthArr('qualidade', mk);
+    toast('Controle de qualidade lançado.');
+    render();
+  };
+
+  const funcaoSelect = document.getElementById('funcao-select');
+  if(funcaoSelect) funcaoSelect.onchange = ()=>{
+    const sf = document.getElementById('scanner-field');
+    const vf = document.getElementById('servidor-field');
+    if(sf) sf.style.display = funcaoSelect.value==='Digitalizador' ? '' : 'none';
+    if(vf) vf.style.display = funcaoSelect.value==='Controle de Qualidade' ? '' : 'none';
+  };
+
+  const formOp = document.getElementById('form-op');
+  if(formOp) formOp.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formOp);
+    const funcao = fd.get('funcao');
+    const op = {id:uid(), nome:fd.get('nome'), contato:fd.get('contato')||'', funcao:funcao,
+      scanner: funcao==='Digitalizador'?fd.get('scanner'):null,
+      servidor: funcao==='Controle de Qualidade'?fd.get('servidor'):null,
+      ativo:true, dataCriacao: todayStr};
+    state.operadores.push(op);
+    await persistOperadores();
+    toast('Operador cadastrado.');
+    render();
+  };
+
+  main.querySelectorAll('[data-change-scanner]').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const op = state.operadores.find(o=>o.id===sel.dataset.changeScanner);
+      op.scanner = sel.value;
+      await persistOperadores();
+      toast('Escâner atualizado.');
+    };
+  });
+  main.querySelectorAll('[data-change-servidor]').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const op = state.operadores.find(o=>o.id===sel.dataset.changeServidor);
+      op.servidor = sel.value;
+      await persistOperadores();
+      toast('Servidor atualizado.');
+    };
+  });
+  main.querySelectorAll('[data-deactivate]').forEach(b=>{
+    b.onclick = async ()=>{
+      const op = state.operadores.find(o=>o.id===b.dataset.deactivate);
+      op.ativo = false; op.dataDesativacao = todayStr;
+      await persistOperadores(); toast('Operador desativado.'); render();
+    };
+  });
+  main.querySelectorAll('[data-reactivate]').forEach(b=>{
+    b.onclick = async ()=>{
+      const op = state.operadores.find(o=>o.id===b.dataset.reactivate);
+      op.ativo = true; op.dataDesativacao = null;
+      await persistOperadores(); toast('Operador reativado.'); render();
+    };
+  });
+  main.querySelectorAll('[data-remove]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!confirm('Excluir definitivamente este operador do cadastro? O histórico de produção lançado permanece.')) return;
+      state.operadores = state.operadores.filter(o=>o.id!==b.dataset.remove);
+      await persistOperadores(); toast('Operador excluído.'); render();
+    };
+  });
+
+  main.querySelectorAll('[data-del-prod]').forEach(b=>{
+    b.onclick = async ()=>{
+      const mk = refMonth; const arr = await getMonthArr('producao', mk);
+      const removed = arr.find(p=>p.id===b.dataset.delProd);
+      monthCache.producao[mk] = arr.filter(p=>p.id!==b.dataset.delProd);
+      await saveMonthArr('producao', mk);
+      if(removed){
+        state.contratoTotais.arquivos = Math.max(0, state.contratoTotais.arquivos - Number(removed.arquivos||0));
+        state.contratoTotais.caixas = Math.max(0, state.contratoTotais.caixas - Number(removed.caixas||0));
+        state.contratoTotais.nid = Math.max(0, state.contratoTotais.nid - Number(removed.nid||0));
+        await persistContrato();
+      }
+      render();
+    };
+  });
+  main.querySelectorAll('[data-del-envio]').forEach(b=>{
+    b.onclick = async ()=>{
+      const mk = refMonth; const arr = await getMonthArr('envio', mk);
+      const removed = arr.find(p=>p.id===b.dataset.delEnvio);
+      monthCache.envio[mk] = arr.filter(p=>p.id!==b.dataset.delEnvio);
+      await saveMonthArr('envio', mk);
+      if(removed){
+        state.arqgerTotais.enviados = Math.max(0, state.arqgerTotais.enviados - Number(removed.arquivos||0));
+        state.arqgerTotais.nids = Math.max(0, state.arqgerTotais.nids - Number(removed.nids||0));
+        state.arqgerTotais.aprovados = Math.max(0, state.arqgerTotais.aprovados - Number(removed.aprovados||0));
+        state.arqgerTotais.consertos = Math.max(0, state.arqgerTotais.consertos - Number(removed.consertos||0));
+        await persistArqgerTotais();
+      }
+      render();
+    };
+  });
+  main.querySelectorAll('[data-del-nas]').forEach(b=>{
+    b.onclick = async ()=>{
+      const mk = refMonth; const arr = await getMonthArr('nas', mk);
+      monthCache.nas[mk] = arr.filter(p=>p.id!==b.dataset.delNas);
+      await saveMonthArr('nas', mk); render();
+    };
+  });
+  main.querySelectorAll('[data-del-hig]').forEach(b=>{
+    b.onclick = async ()=>{
+      const mk = refMonth; const arr = await getMonthArr('higienizacao', mk);
+      monthCache.higienizacao[mk] = arr.filter(p=>p.id!==b.dataset.delHig);
+      await saveMonthArr('higienizacao', mk); render();
+    };
+  });
+  main.querySelectorAll('[data-del-qual]').forEach(b=>{
+    b.onclick = async ()=>{
+      const mk = refMonth; const arr = await getMonthArr('qualidade', mk);
+      monthCache.qualidade[mk] = arr.filter(p=>p.id!==b.dataset.delQual);
+      await saveMonthArr('qualidade', mk); render();
+    };
+  });
+
+  const formContrato = document.getElementById('form-contrato');
+  if(formContrato) formContrato.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formContrato);
+    state.contratoTJRJ = {
+      nome: fd.get('nome')||'Contrato',
+      processosMeta: Number(fd.get('processosMeta')||0),
+      folhasMedia: Number(fd.get('folhasMedia')||0),
+      imagensMeta: Number(fd.get('imagensMeta')||0),
+      dataInicio: fd.get('dataInicio')||'',
+      duracaoAnos: Number(fd.get('duracaoAnos')||4)
+    };
+    await persistContrato();
+    toast('Dados do contrato salvos.');
+    render();
+  };
+
+  const formMetasScanner = document.getElementById('form-metas-scanner');
+  if(formMetasScanner) formMetasScanner.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formMetasScanner);
+    SCANNERS.forEach(s=>{
+      state.metasScanner[s] = {diaria:Number(fd.get('d-'+s)||0), hora:Number(fd.get('h-'+s)||0)};
+    });
+    await persistMetas(); toast('Metas de escâner salvas.'); render();
+  };
+  const formMetasOutras = document.getElementById('form-metas-outras');
+  if(formMetasOutras) formMetasOutras.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formMetasOutras);
+    state.metaHigienizacao = Number(fd.get('metaHig')||0);
+    state.metaQualidade = {qc:Number(fd.get('metaQC')||0), finalizados:Number(fd.get('metaFin')||0)};
+    await persistMetas(); toast('Metas salvas.'); render();
+  };
+  const formMetasArqger = document.getElementById('form-metas-arqger');
+  if(formMetasArqger) formMetasArqger.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formMetasArqger);
+    state.metaArqger = {diaria:Number(fd.get('d')||0), semanal:Number(fd.get('s')||0), mensal:Number(fd.get('m')||0)};
+    await persistMetas(); toast('Metas de envio salvas.'); render();
+  };
+  const formThresholds = document.getElementById('form-thresholds');
+  if(formThresholds) formThresholds.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formThresholds);
+    state.thresholds = {baixa:Number(fd.get('baixa')||0), media:Number(fd.get('media')||0), boa:Number(fd.get('boa')||0)};
+    await persistMetas(); toast('Faixas de status salvas.'); render();
+  };
+
+  const btnFechar = document.getElementById('btn-fechar-mes');
+  if(btnFechar) btnFechar.onclick = async ()=>{
+    if(!confirm('Fechar o mês atual? Isso marca o período como encerrado para conferência.')) return;
+    state.fechamentos.push({mes:refMonth, dataFechamento: todayStr.split('-').reverse().join('/')});
+    await saveJSON('sp-fechamentos', state.fechamentos);
+    toast('Mês fechado.'); render();
+  };
+}
+
+(async function init(){
+  const logoImg = document.getElementById('logo-img');
+  if(logoImg) logoImg.src = 'data:image/png;base64,'+LOGO_B64;
+  await loadAll();
+  setCloudStatus('ok');
+  render();
+})();
+</script>
+</body>
+</html>
