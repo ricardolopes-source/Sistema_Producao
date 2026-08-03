@@ -34,6 +34,11 @@ nav.tabs{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;background:var(-
 nav.tabs button{flex:none;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;}
 nav.tabs button .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
 nav.tabs button.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.toolbar{display:flex;gap:8px;align-items:center;padding:9px 20px;background:#EFE8D6;border-bottom:1px solid var(--line-strong);flex-wrap:wrap;position:sticky;top:52px;z-index:19;}
+.toolbar label{margin:0;font-size:12px;color:var(--ink-soft);font-weight:600;white-space:nowrap;}
+.toolbar input[type=month]{width:auto;padding:6px 8px;}
+.toolbar .spacer{flex:1;min-width:6px;}
+#print-title{display:none;}
 main{padding:20px;}
 .grid{display:grid;gap:14px;}
 .cards{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
@@ -97,8 +102,19 @@ select[multiple]{height:auto;}
 ::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px;}
 @media(max-width:640px){
   nav.tabs{padding:8px 10px;}
+  .toolbar{top:46px;}
   main{padding:12px;}
   form.entryform{grid-template-columns:1fr 1fr;}
+}
+@media print{
+  header.top,nav.tabs,.toolbar,form.entryform,button{display:none !important;}
+  #print-title{display:block;font-family:'Source Serif 4',serif;font-size:18px;margin:10px 4px;}
+  body{background:#fff;}
+  #app{max-width:100%;padding:0;}
+  main{padding:6px;}
+  .card{break-inside:avoid;border:1px solid #999;}
+  table{font-size:11px;}
+  .tablewrap{border:none;padding:0;}
 }
 </style>
 </head>
@@ -116,6 +132,8 @@ select[multiple]{height:auto;}
     <div class="sub">Tempo Real Produção e Comunicação</div>
   </header>
   <nav class="tabs" id="tabs"></nav>
+  <div class="toolbar" id="toolbar"></div>
+  <div id="print-title"></div>
   <main id="main"></main>
 </div>
 <div class="toast" id="toast"></div>
@@ -143,7 +161,7 @@ const db = getFirestore(firebaseApp);
 const FIRESTORE_COLLECTION = "sistemaProducao"; // todas as "chaves" do sistema viram documentos aqui
 // ===================================================================
 
-const LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAATUAAAA2CAYAAACm/A4eAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFxEAABcRAcom8z8AAE5tSURBVHhe7X0HWBTX2v/szOzsUuym2JVeRFBAqWLvPaKxK1K292Vpy9JBLLHEGGMSExMTu7GLFRWlV8ESTUxv98bkJrkpJvr+n3ed5T8MoCJ+3/3uvf6e531YdmfmzJw58zvvedsQxFM8xVM8xf9xUBQ1kiTJCoqibpEkWc8wTL1IJKqnKOoKficQCE7RNB3A3+8pnuIpnuL/JCiKmkRR1KcURf1K0/QPQqHQKjRN/0hR1G9IdDRNh/L3e4qH4RnCkRCJRhF2drMJO2omQREzCaK5MAzTqvC3JQhiFkEQLxAEMYQgCJLf5FP85wIABBEREbS/v7+QKwRBtCY0QRAC/nH+G0BR1CyKon6maRqEQiEwDGMV/IzfkST5OUEQI/j7tY4Ia2cyFi+CAS+CqSeayq4WhL8N7LIwULEZb8zjI5Jgrq1y7A4Wr76XY/o4745yCnh3Wb+JO2MGTN70Yp+xm2cOCPxMG+FyS+b1PBFBiPm7txsioj9B0/tImr5J0VQDRT0RuUpR1HWCIDLZgfsU/yV45plnnrezs5stEoli7O3tl9mEJMnWZClJkvMoinqBoqiJBEGgZuLZsWPHrvxj/6eBoqgRJEkW0zT9Syuk9pmVqR6GXZGRVFyck+vyeR0mTZ7WaeZrS3tMvyHrP/3c/M7Ti+baTS+ai387Tz83t1szsf2G252Z3236KeOUGcdM86cXJEX6HVVOEPHbegDoo0OJjltmd3SZL+s8/YLB2XBVO2hNpWbgK8fkfgd3xvjW7oodfPn9mEEVR+L8DtcoQjaXSENSFy1yiVw/rodHyQSiI9yf4doPhvEgSPIyJWJAKBY1duyTEIFA8Ba2wG/yKf5zIRaLQ9FORNP0NzRNf2YTiqIeJLcoirpBkmQtTdNnKYraxjCM2sHBwcc67f6HwsHB4VmxWLxYKBQWtUJqnz4SqRVFTXN/e27Iq7sWB1TuifKvPiAbWXXaOKXqvDqw6pLMnRWvqmKZe1UJR/B//B5/x89nVIOr9qgnVr2hmVW9RTn16DFD+NK/vd6tA789Lpb0I8SzlomcJi+gZhYu6JBzJsZt3x7VoIoChd+nZ5X+31/QhfxYaAi9U2SKgOLEEVCcEAal8WF3iuVhP51fPvyr/dHhtceXBB64NN8979PIjnNSjB3cx+qfc+C30yYwjJuAJGtokRBEYhGIRE9OBALBm09J7b8LIpFoLE3Tf+M+pG0RoVB4TygUouZyi6bpw0KhMLZ79+49+O38p+DZZ599jqbpt9pFakfmT5xycNGoL68ap8KHxolwVj0ZzqbMg+q0iVBvDoUGcxhcMYfCVXMwXDcHww1zENwwB8M1c7D1e/y9wRwKNakj4WzSJDiS/ALsM06F7fLQK7uVHvJ7nxF2/DYRq6IJt70vPKc6EOP07i55v7IKpevtWn0AVMcHwwV1IJxSBkCRPhQuGUKgxBAElcahUBs/FOpNQVAmC4RSSSg0qMdCjWY0VMrDb1dLAiv3K4ftejvOP7le5RQGuwiK3+YjgSFcSZKoEIooEIlaH4h8wuIKf1ubCASC154uP/+74ODgMIim6b1o+OaOG7FY3GbBh5uiqJtCoTBHLBb34bf1nwB3d/cODMNsaRepHV4wcs7x6NE/fGaeDjf0I34/vty/fI923NFLCaOOl8YPLyiNDy2ojA8qKDMGFBwzDi44bPQrOGwcXHDJGFBQGT+soCw+tOCSafjxEmPIyTLdsE9LjSFQnDAcjmpCYYfM/8N9pgFRP6iJzrb26l4knnt9QZ9x7yztu+linPeXDbpB924ZBsL1+MHQEB8I1cZhUKwNgvOaYDirGgaFykA4J/eDi/KBUK70hhqVD1Qr/aFaGQL1muFwRTsSrujGQJ1hIlQYpsApxZgfjsb6H9o2r8/ijEWMJwFtXpZ6CEjiKiUUAC2ksDP/IRQKy0mSPIdCUdSHNE3/xScyVn5hGKaasy16a/7EG4IiEAje/U9ePjxFc3Tp0qWTvb39ZKFQeOphk+HDxPag0zT9d5qm4wmCcOS39++O559//hmGYba2i9TORYW/cCY6/NsbptFwJWbgF1fnd1i6bXVvlw/1fl4NskDvBpmv96eyPt4N0V28p0Y7ePtGO3gHRjt4H4vu4v297DnvGzJf7wpFsMfnC3v5/ri82xt1Uc/frVe7QpXWBwrjQ2C3atj1w+qBqov6wf1eVgf67ZMMtOxbPrDqeLTXrzcSAuET0yC4pnKHaqUXlKsGQ6k+FMqTxkJFyiS4YBoLl4yjoFgfDuW6IKjRBUC9fghcSQqHy4mjoEoXDhXyYKiUhUKNYiQ06CZCdfxUOCwf8df25cM+fUPls21RRvcpEZY23XxngYA4S1LE9xRF/k0gEOyxs7Ob1qFDhxA7O7thQqFwBbqc+QMORSwW33B0dIzB7XB7oVAYRZLkRYqi/k5R1N8Iglj3dPn53wd/f397oVD4Kj6cXILiyG+28AWhUPizUCi8w/u9kdBYUsMJsg7juvht/buDJbX2LT8rpSNnnZOEfnM9PgJqYpw/+nY6EcLf5lHx6QtE+o3FdnduKXpBSVyPP0pN/n+dS58M72kiGk6b/LW7VOHrdmkmfFuUMh4q1b7QIHOGy0oPqFH7Qa1+GJQbI+C8YTSc0I3+47B2wi/HdJN/PK6f+Pcz+tHfFelGfFesDf7ugjLg+zOaoT+dNYT8WqQP+atMPwJqNCPhsmIkVMtGQKksAkp046HMMh0KUsf/+obcq2K1zDEud3vfLvzzbQWoVS4kacJE06QRbSL9+vVr9LKih0ogEPzMX1qys3Bl9+7dB9u27dChQzeSJOfSNG2iadpAEMS4B4R04PeoVdrc+q1t96SAYQPYFpLsoyzVrd7x/4WQAzwnNFmgoFb7KOf2qMDztvXx/2b4hEgoFG7iPqgURdnkL5IkC4VC4WoUiqJeo2n6EK4IcPLkbGclQ9tDLhAI/hIIBBlPuH/+5XgipFamGDPrpCTk6/rECChTeX1cNo9++E4twkJKFhNZ5YvF975SPP/XOwvsCo/K+1+8mD7+j8MJI4vrEvpG7o3xMh9Kmv5jTe5sKFcNguq4/lCp8YfShHFQqB8Np9Sjvj8pDSvfHhO4O00Zvm77kmHJG6LDlIdjw2IvSIfFnov1l7w610O3d8mAzHOy3pvPab2OXtKHXbukHvVbDdrXFKOhQhoOVeqRUGkYBWUJI+GcLhAOqL2vn0gabjm3KvxR7BBIJujgQBc6SpPlIkmSi2maxtm0cfa0dTpFUZVoQ+Fuj2YVzrHseb8Rs2fPtuvevbsbe7Om41fsX/zfFR1o/H1agBA9R126dOnj7u7es1u3blbp2rVrr65du/YmCKIbd/D36dOnp1gsDsOYOoqiZlMUNYH1rDVrq0ePHqhl+FEUNcUacHP/3MIIgujF37YF0D169OiO5+Xq6trLdm7svr07derUONH07t3bTigUDmYYBuP5YgiCkBAEsYggiLEEQfRvD8ljXFinTp36d+jQIbhDhw5THB0dX0Dp0KHDpA4dOgT16NGjb2Rk5P8kOThQFLUFxwg7+XG1rj8YhrGIRKIBIpGoP8MwXjRNB7P35XWapn/ijjPb/uyY2433nd/Yw8DGyT3pCQOB9wiPi+PosWzHjo6Oz1AU9RZep82WaOsvmqY/pelH4KdC9chZR+OCv65KHgHn9H63zmk6jeL+fskS1HWPcdLII5Y5M06ZJkwt0I+aWpg0YerBlFkzjiRPHfWjxet+/IwXwZilHVdVR3eDT2V97r70giAtc4Gdcq/Eu6HOOEgPFsJxzyyR056kUWuOqsP+XqIOgBvJIVCoDoV9+kmfrtKOOvyuKjjr1DKf2Zvn9A50TfBxSuhE4KAXRRAEfZYg6M33O8p+qxfx/K1FhGeV1jGiTDc4aq884JUNcYEXT0cP/aFBOQqu6cdCtWwoFC/3hiqVL9TGB8FpTcQ3W1QjMoms8HZ5jkiSXM56o5qRGkmSNUKh0J+/T0t47rnnHGiaDnJ0dJSJxeLXBALBMZIki0iSLMW/AoHgOM7aJElK8JheXl4PWrb2JklSKxQK19jZ2a0QCoV5rKwQiURraJqOY8mV7tSp02g7O7tckUh0mCTJS9ieUCgspGn6HZIkkUwaiZ9hGFcHBwc5wzDvkyR5niTJMlxOCwSCIwKBYCXGUXXr9kAP9zM0TeP5v2RnZ5fv4OBgPS9231X44MbGxgrxYRaJRHKapneSJFlCkuQVkiSvYX8KBILTAoFgA0VRkXZ2do9CpI3APkOiFAqFy0Qi0TqRSHSQYZhzDMOUsHJOJBIdEIlEL3Xo0GERS+yP9TA+BPZcUrM9sCw5/UbTtJS/A8LOzi6APd8mNjXbvjRNn2QYxp2/Hx/YDyKRyIUgiJEMw8xGswh6UUmSXMJOUsE4JPn7PQw4EeEYoWl6OEVR04RC4SI8Lo43bAPboihqDEEQA9tg/3sGQ5/aT2qS4K/LzSPghNH/1mlTtyakdkruM2SnaswHR1JfuHLMNK76sCa06qRpXPXBxGlXDhjGH7wsHRCI20V6EczHkt5rrqi84UbCMDi5+Jms0QuJCRvn9dzWsKw7BhFaYbKI+r87p2dukSLgw6tJI78+uDzg8KvqCZoBG0cHzt7SsStY2jYj13sRzFKpuI+TpPvE915wzi9dHlhyTRV+56Y2HGpiBkJNtCs0KHygUDUCtqumfGU0jU96e0YH1FweC0+C1MRicV+RSCQTCoWHMGaJYZg/bMfjyR+YNiIQCPYKhcKFuJzlH4vFUIFAgDlzvwuFwn+waSU/4ixP0zQuYXYSBOGEAZ1isfiMSCT6iastsNdwl6KojwUCQToqaA4ODt5CofBl9vzu2q6TI78gwbFE2BqxuSEpURSF14cah/W8SJLEff8hEAheRo1RKBQiwX3Ghi/w28G+xRSZWoqiclvQhFuEvb3980KhcLFAINhFUdRHQqHwV9v94lwzyj2apv+Jyz2GYbYLhcL5jo6O3fnHayceRGp/0DSt4e+AQNIQiURr8d5wSc127wQCwQmWrFoFex+XUxT1Mi5z2QnjY5IkPxEIBB8JBIJagUBwCO87pilxtefWgBOZWCwOxzHMMMwrQqEQyRXvz02apj9BwbGEOZvsBP02QRB4jUieD3OUPQlSC511VB70dallBBxKDLi1V/9cE1LbMcd5yHtxI3YdSpxZdVQ7uuS4NKj4pHZ0yUHjlKr3lSP3lC7qZk0wjSQIpizKa11J/Bioz46E80ud350rJcbtTB6y5MIyrzDMOLAd8+Isol+dcvDG8hjv194e83yATBbxqCzeOiIIelmY4zNHZz0/qWae8+Gq6IB/3lANhRvyQVC33BUuqULhTEok7NVO+PSMZMiStpKnDe0lNQcHh+eEQmEuTdOfMwzzp81w3Jqwx/6TJMmbJEkqWFsTH8ECgQCTfpuQAefhPcTOzOX8MAHuwMF9KIrCQZmChm0kR/yOf042Ya/5Jqa38E+IhTtGiNvOi0+MNE2fYBhmB+vNa0I43HbYAY3n9iMOeJFI5MxviIfOJEkm4oNF07TV6M49LrcdrgiFwt8pirqGga4P0UDbigeSGsMwGkyn4u+E2rxQKNyAxNvCuWKfvPeAiQ6XlsMYhnkbxxqaTCiKusv2o1VIkrR9vsNONpUikUiKHlv+wViQdnZ2vUUiUZxAIDiDAcWsY6NxHHP7mb2+e6xtEJ1uxwiCmPwQbbj9pFasDphVIPH/uiI1Ag4lBt7aqenVhNS2+vbrvGeWd+jpecMmnZk+aPyZ8e7jz00fNL5gfsDEN6XeIScj73fALsKLOSoZseGoYToUmKb/vGO2S/y8WKJ73eH5XU7GjukErEEW/5Zrxw09rRr/7ruRXvInbagFgqBenWgXUL10wPrLsX5/v6EJgbpYXyiRD4VzhrFQaJwEJ/VjLh6LHYyzRpvRHlJD+xJFUZkMw3xnu/HcG9ea4LbsILxOkuTCFgaFO86GJEl+azsn2754bJqmcSlXhedoa4tLaHZ2dtyHDDWXL1hPnPXauOfC3Q/bwQdDIBDsR8WCd06I3hRFrSdJ8ivug8ke665QKPwbwzBN+pL/UHD7ALdBLU8gEKwiCKJFbeqZZ55xJEnSgHmC3ONxj9nSdzxiv4kPN9dB1E48iNR+Q42HvwM+F126dEEttoTfN+x4+yfDMDqLxdLS5ExSFDVOIBBgsC5u1zhGuYJjyvbZdg9omr7BMEx8SxobEj3DMMlsVoRVq+b3I1+454xOEYz3Z4mtpfNGtJ/UKqWDZhXG+n5dlxIGJ4wBt3bq+zYhNSKWEO6ZRTjdCyMGlYYS3sRUwlsfQAy8N5zw+VVP9AO4b2wEi4Us0U2O37Zs5O0d8vDd66KtBupmWLlw7LA3lXP37I5f8sXeuDEGCye9CQiCBEs/8S72mO3BDwtFA84sd1pZGBPwU612JFRqQuF0rC+c14+EopTpfx2IC92yb4bVgN4mtIPUSMz5o2n6y5YeJpqmf0cVXigUnsGSK1wNg/OwIYEUEgTR6GFlgfayIIqi3sTtuMdmyacxVg61EdSMcEnJ345PWOx1YcWE7zDMgD942YGG54XkhA4OPtD4P0QoFOIS5TfuQOUOVltfstUZUGv7i/8gc9sjSfI79FDzG0PY2dnNYGMJmz1YNrG1x+1f/vmQJFnn4ODQhuTpB6IZqdnODftFLBbrkTBQM0PNq2PHjs4Mw0xmGGaXrd+4586OgyPoVOA3hMA+p2m6ADUz7vVzycwmXEKzbYdpWkKhcCkm4nOPi04jhmGScGza9mupT/nCu3d47h8QBNHasrn9pHY91nVWcbT719cTguCCzv/WAR6pLYhyd8+PHrbmvCZi7we64O3zdIO2r5UPee+EJGj3+9KgVVukrp62bW+aJ/u/sSRw7c5on1U74lwnHYoKmXbGMGn6Qcu8GWsTpkXmTe8Z8qZiZtIm3bI/9phj75VER2QBz+O2PzrELzFl0izioqXNXh0+LFLC6chi761F2km/1ZhGQpnUG8q0wVBmngaH5GO/OaMYNpe/z8PQDlJzEgqFBfxBzQ5s1D7eFwqFC0Qi0Wg0uAoEggMkSeLSxLaNbTD/jqbJluLdaJpGZ0HjcbmDAr8nSfKyQCDYRFFUOk3T1mWf7Rq427OkhprVZaFQuJEkyVQkTFzGcLfnXrtAIMhrTesWCoXRaFOzDVSuZsgeA+1tpwQCwXqBQJCDXj90SlAUZSVjbnu2B4MgiAMYAcBtB9OH0Nlge+Bs/cB58L4Ti8Vo/9mFnkOGYTCU4nYrDxBuv/EJLUMfRGp4jXtxCYrLXrFYnCQWizcwDFPEXzqz5/UbLv3QMM9vBIGJ7xRFrcOJwUbsnH1xDN0QCAT7KIp6D+uTURTVTCNnye+0o6Nj47NtA3rq0TSB1TQ45/Yb2i3RyYOTLuvwwtUB2gsbJ0kboZIk+QPr4W5pvLSf1L5a/vys6iinrz81+kO5YvCti9FNl5+b5oeFrpLMOLclaf7Xe4yTPn5HHvHRDvnoW++op369XjLhXN48f3TvN+IDg+vMwzHBpYdlodfO6CKunTCOv/pB4owPX1eOrXtzZk9ZkXlGxs7kJfcOx8/989R874yzPFLbJh0bmaWddmlKxgtaryBrGES7UKn38T+uHneqSBUEt+IHw1XjUDinCoET8dPhlH7qnm+WD2yT1+cxSQ1vHnqcfuQOUJugoVUoFPpyVHIBepQEAkEZtw2bHQSXFSKRyInXBnork1oiKfyfTa+JJgiiZ6dOnTo7Ojp64YxpW0bwSU0oFH5N07TCzs4OQzA6oYcSl5Jo32uJ2CiK2tGaw4CmaTn2mW2g8pa7fyLJODo6YjUKvBe4rOxJUdR0kiQv8O1xtgdDIBB8S1HUVG47DMNMY5fOzfoYtU30BGNYBxs+4YyaGEVRm9G5YnugOeeF7VxDDzW3jcdEq6SGkwfr3MH+xmU6asUtLcl/F4lEDQzDbBKLxfhgt2hwZxhmKut0aSQqzj1CUkDydENnlVgsxtCRd3GVYNvWdu1oK7Ozs1O2FPbRoUMHN3Y/dLB8hHFlJEmqMeyH9YSOIUkyGidmW6A6//7RNL2NjQnlo/2k9tOirrOuLez19bfaQdAg875188WmjoJSQ+Tze1OXLFDnzNEcjfOTVU13k52b66E4oRqh/yB15gJdrH+jbUMWQTieW+6+8aJu1F+XLePhsmW0NWXqdPwIOCH1Kaqeb+931TREXWCc8NcFw7g72xcNSCP6NSW1c1lTXtiaMOsf62WjPjdLnBKmbO7Rl/t7W4EG2F3q0MXHF7l8+U2CL3wcPwTOxA6Cc0kz4KD+hS/PxgbP4O/zIDwmqaF9Yht3e46gNpbA34EluNU20uEOCDSA29vbYyAvFwKGYVK558UZpGi/eqlr164duTvQNK23xdzZtueQGnpJB3C3xyURTdPN7HbsgCtgCbAZaJpW80mNM9ArHB0dWxqoQqFQiCV4cCA39herRVhFLBZb2ABaBEVRVBpN01ZPLa+f/0RSQWLmtSFwdHT0YLW2e3hO9vb2tuvHfv6dJElVKxpFW/AgUmuUlvrVJqgld+jQIee5557z5h/cBrQnUhSFITzNjouam0AgyGfHYiPEYnEIOghwG367NE3vs7e3bzEEys7ObqhQKMyyt7dfxOah8mMwcSWBFUpq+efCfj7fqVOnJuOLRftJ7Yelz8yqWez0zRe6QLgc5/vJJ7ObamoIiPXvRAQSz+sJ4tmFBPHsSoJ4tr4f8XxpToduxBTCvqKHv30E0U88ZVnviIKYgIYSw+i7F7VDfy9U+P5RZAyCQl3gz3VRHTGYkqhc2FlxXB58r1wT8ufbi3qk8QM+v3hl6pSjmXO+P5EyFd6PH/7F+mjXV6ZPJzB+6LGxfOqzzxUu6Lntutzl3g3dQLgk84OihImwTzPl7o7YERvqHxwD1gSPSWoYXFveysOJ2puRDfNAW4oHuunxf1zS2ZZg3H1xuWZvb48xRlw0ITXO4MF90Ri9nLc9ktRs1A5s29lIjR1Eb+FDwt2+U6dOfuh04JIfCtvGWT4J2kDTtMpGatw2kNAxObu1GDwvL6+uDMO8y+uvxuuzs7PbZgu/wL/oDeRet20/iqLQadDq5CUWi1+kadq6DLWRGn5mNcJNrWlFbUC7SY1hmB/EYvFphmEMLZCzFQzDeKJ2a2uH7WPb2Pw7QRDj+fvgkBYIBFu5+3Darre3t+fbbxuBS92IiAjxrl27KJwwkQDFYnE/JDn8Hz8LBAJc7je7bsy+sbe3x9UJH+0ntYrlXpEn5eG3r2bOhgu60V+ULxyAEdyNeH/p3D77FVFL35fMNW6LmaJ9QzVau187VXNUOVWzLS5M+6Z8kulYkjzxXcV8vX7+gOVvxwVmnzEFv1TwYr+8PXOeX7dPHXbjmDK85IvR1gebKFw0QF+gH3ev0hRx550lzzXT1K6mB009mTbju3Pp0+BCynjYG+3788bFLtsOJ/iMIc4+cgBfM7y6qOPcs8v6fXNVNxgqlL5Qpg+BU/rRsF8x4tLnRj+M3H8kIKlxi9jZOhz/b43U2NkQ1fQmA5h9SH/F+CGGYd5EImEYBmtnvU1R1BtCobAUNQ/+w4xLETs7Owzv4KKZpmYTXCZgzBZve9ty7TPbNdgGHHuMDfyASQcHh4EURVlnXs7gtLWBpNZsSYzgkxpnH3RYtORgaAR6+CiKQo9s4/Xb9heLxQW28A4MAhUKhafxN462aXugzwuFwlY1HPwN7Y38Bwn3RftTK8uktqBVUuOMA9uyrPE6udfLCmrtWMbo5ZbsXWyZI6sjijvOUCiK+hb7EoOvO3bsOMHe3n6iSCQaLxKJJtA0vd/WLu5jMw8IhcLPHRwcmvABB13QIcEwTCR6S0UiEQZUv0ZR1FbWYbWGjT+8yrsGm1S38r6B9pPawZiAF97XTvrmZNZSOKgbc+tiVN/R3N+PLZoRvF057+wB44tfndJN++iCfsyNYt2oG+eVI28cl4/86JR25seHDS9+vl8x9UrRYjdpih/h+r6OcLvaj+h/dkk/v23xs3ZtV05e8yWrnh6VRxgOmV64d1436s/NS55pRmqFUpepBSlTvjubOAbO6YLhnCYQTssC/jiu8L2QE/WsZOukpsbhR0WfCYTzsWi3gstYxkjlDTWagVBuDIKT2pCvajV+D3ywuLCRmm1gcjudoqgae3v7ZqSGS0W8IfybZBvQfBLiim3A8wb7PbFYjFUauGgkNe5Dwx4DiTOKtz0SAXoKP7dtZzsn9JoJBIKX+KQmFAoHssTd5BzZ60BSa1GDQFLj9hlnny/ZiPNWgVHvJElabT62/Tl9eB61E9xOKBT6YJYA/oYPJQqnnf2oNfCPbQNqmKjh2PrX1gbbd8exzBd/nzaiGalx7u9dzGlE+ylae3ApyIbu/MNmT7RdE+e+/tPOzi7H39+/STwZapxYKcZ27rbrYT9j5kKDnZ3dJZFIVIaCkyaGjLC2vMbtUVtFYRjma0dHx5ZiEFF7S0EPLDoE2MnJeo945IymALSZNiEo3I4kyf85Utsb4zzkVcmIra9pJp16Lzrg1dK5jFWjsqFu2Win7fNH5h2UTdhVoR331ofa0C3Vy1y2nJ3d641aRci2q8bxbx9b4v/OtsX+ey8kjMrfF+0uOagYGHdW4bu0MHOu7nXTkkMHUpY3dsy7ceMMbyun3NsfF/Jn7oJuafyS3GVKl6mnUyZ9V5QwAkr1gVCu84cq3VA4Lfe/t+9Fl08OSXqbN+UO609YmrqbHwYvL4IplrmnF2kC/qoz+EK91h1qDYPhlCboz8MS/xT+9q3hMUlt/ANIDbUQ9BLhoEPBkAuboFcJAxetwoZX4PeYUK/jNfMwUmtp+fmvJrWvMJ6Kvz0XbHnrJqTGuTbUcK1pQnhu+IC2QmoftHZuCPwNPXa2h5rbd5iu9j9Mahj4ihoOOj0wjOMFTJvCZS8SBhJDC6SGn6vQ6cFtRCQSRYlEIgwRabx2/n16FLG1IRQKvxeLxfM5TaBt0Y8gCExnu42mEds+7PH/oijqe5Ikv6YoCh0e6NW22jj/R0hN9swzjhbfTp13jXHqdNLJqdNm/y6dpvfr1Hn1qK699Av7D9NGuY+0zOg69J2+RA9Tly6dLPffWUBU+PsL3x/Xs8+x2e7uny0f7PKj1NWpbjThdNKHcLq51Mn1R5mXS0E4MWBaSnDUpqQZVW+rJny5MyXykx3mOR+/lTTvm5eVM86fjxvaGE/zvmy88V3dbNinGPtn1tJe6XxS+yLJfWqxedx3xaYwKNP6QoVyIFRqB0OlIRiK1UFQoBj29W5VxLtjk4ZP7L26xej6VqGL7T73iHzw7Q8Th0GDxg1qtQOhOGEEHNSEvHFra/Nk7pbwOKSGJZ3ZgM4mDww7INBtj+WJ3mBV920tCC5H32L/vs/+ncRr5kmT2toWSM0HDb+2Nrj7PCap/SASiZbyt7cBA0sxuwGXn61c1we2Yom4DLXVLONPHBhq8CDbEJuwb10m8a9LIBDsRvMRf5824kGkhpMUphDh84aeRrQvohe5D5veZB03NqKyXT960pHEuI2IxeIl/Lg2zrVgZD9Okr/wJkkU9GLi91bBe4XnhdklJEnO4TThgoRjC9XgEiB7HcexzhtORGwYDy4/v7Sd/xMltb4bp4dsWRIW/2b02FXbZRNWfCAbn3fEMC1vr3rcigOK8Kz3JL4pby11TtorGWQuWOqTe0QaknswZthEjP6vjyAcSzSu4adi3aeWx/WadNPoNKlB9fykOlWvSSdmMZOqJP0mlqrdx0cv6h/zujJ0xz7V8NPHkiYW7NWOPbldNfb8XnXEqo9G/f9k2UPGmaZDGXFQkDT37r7lHtlbeaT2D81zUy8Zgr8r0g6BUrk7lElcoFzhCVX6QKgwDYey+NFwTDPmz5dVo8+v1PovJzb3aDGyvCX4zKeHH5AMvH4jOQzqlC5QoXCFsqQRcNoYcfAXw6Mtax+H1FCbwDr13AeSIzjbbbSWBCAItPug8ZQv3h06dHBntRFM0PZroTrDvyOpYb7paxhiwt8H8dxzz/WnafpIS0t0/J+1+1nLt2MEPE3Tb3MfNE473zo4OHA1jibA5GvMk+UdG/dDUsN+aNOqoAU8jNQws6YZ0BDPlrZGc4N1e9u1sRpQInd7rLrCvlqu8fjcMYCxaSRJWtiYwhUCgYArWGiAKy+RJGlmNTMESZKknKIoDD9pvB824sG4NpFINIZNsbISND4LGMT8JEmNDWchCIk+bMd7khFf79VM+XO/ftLvH2jG/VYQP/m3M6aJvxcaxvx2XBH0z8Nxg38p1Ab986wy8I9zptG/HzVNO3p4VpjTD9GiAcfkQw7ulgz5+IRqcH1pwuC6S1rvy4XKgfUHo1zqTxtDr57Uh13ZOKdHRmkk4feHnPD55UVicI0LMbh+hjjsirJf0Nec9wac0481HjIvgYOm2bB/qUfWhy5NPUtrVcyU06aAb+tMAVCpcIZKSX+olDpBldoHKvVDoUwXDCXGCLiojYCdiqAr+jj3jJNRPVudhblYPkE46ESs9/krSWFQq3CCMkl/KEsIhXO6kJM/zidaNHLz8TikxgZEbucOMt7AxkDSFjMwbOCHY7SAfztSY9v6CLU1vge0Z8+e3TDuDgtstkRqLBlg9RErUKtjGAZzVv/inxub+rXb3t7e9oByEYJLTC7h2AiNTbxv1m+PgQeRGmo92pZyP/E7rMWHXuIWSA2DozGkpRGsQ+o6tx3OGEDTBposcHWDkwhOijZ5hi2Nhfcbbd/4GSd5/N72fHZDUrTdN9vxWeLBbBisF9gENE0PxWDf/xFS2xs1+B8nVCPgUtIkOBc/Gk6rQ+GsJgyKjcOhMnEkXNIMg0vKAKhNCIcKXSCUJI6G4+nzfn1bPlRzPZ7w3KcMePvt2MDavYrAkhO60PMntUOLjmmCSnZE+5Yc0I0p/SBhQqnF4JmnX+I+4s2Y8JA9seHDz8wbE7Fn3qDxhxf1a+KlKVzuN+kdyeiD26JCDiVO69XMQD/WIBp3JN7324+T/aFB7QwNigFwWeEEtSpPqFQPhFLlIKjSDoZanT8UKgNgnyTgx+PSobtOvzhoVL3M64He0TU+hNOZ5R4H8D0INXInqJY5QVn8MChUDzv17dRW0zaaAHMvWZtWM1LDmCu2fA0fFCaUMwzTqA1wBx2GdeBzydYZw0FlK97ogBoZ69XCWLYHkjfGu/0LSe3kA+LUWiU1VsodHBwWYHpQly5d+nbt2tXTwcFBh4OYux23PdQA+J5mhmEmYoUI7vac/fGevd2pU6eRPXv2dMMAUvT+YWVjtrpJ4/Ftxm6BQID2w0eqCvIQ2LHFH5v0G9tWq6SGEIlESoZhGgNYOaSGmhpqUo3AZHPMw+UGLHP7G7NICIJo1WHCkl1rKxY31Ma4584Z/79iNgRvewY1PVzOPmFSG27dqizW+9di5TCoNqKdaigUyf2gSDIIihV+UKkNgDKFL1Qo/OBKfDCUy72hUDkYjltmwlbpsPK3Yx1nvRXbf/ixRa6zjr7oMfP4RI8pJyb3n3ZhWb+ZRxe7znxrcsC0tXEeM83Rvdesig4q2GKYefSdxNlH9iYvOP6uZvKJS5rA6L0udr3XTfDpfXycc5/XXnjOe+W03sPfGNE9Ys3I57zXjvHqu1/n3Cc5vGefyMh+zx9eIF54bMnzf69VOcNVZX+4ruxn/XtZ6QKVCjfrkvSy2gtqFJ5QqvSFiuRx8IFm/L0N84cePBvt29JM3IjXehG9T0V57SwzBEGN3AWu6NyhwhQIZyW+p34cSTys8oMAtQGRSBT9AE2tGkt583dE4BKUzRxoMuBwf/yfIIivCYLAV+hhPB+SPdoypEKhcB0Wn0QPE0VR77BL1GYPACZf48zNPfb/MqlhzmqLoTEtkRp3X3xAaZrGfM0DNE1jXNoJzAzgb8c5vzuYTsWvWIKxaqgRYeJ0S+fIJndXC4XCYxgsjG/8RjsTn2zYZSemo+EyrU1221bAUBS1id8O29aDSE1AkqQG759tex6p8YO2cdmnIUnyn/y2WCL5AWvTYeAsq4Wh7Q6Xixhgi04HrKS7tZUXBmPRBLzHza4B84ixWi8eF5efOBFjqA5OPHgeT5DUPrGzs7uf4VEVPeB2abTb3Wq5F1QrvKFS5gWVEg+olHpAvcYX6hQD4bLKB26YAqFG7gFFUi84kTAWDpjG3tklH1y4Y1m/DaWGQRvqTEM3Fku8NxyZ32vjvsiuG88qB20sMo5+eesS51dSojqkr44fotqWMEn1hmKKamfCTNXO1FHqA0v7Zm2Z4fb2UfXY7QXKsO0HpUPe2D7P5eUd8z03HFKOfH27Yvz23cYJ299YNnT77jifN8uWPH+oeHnPH+rVzlAv7QlXpD2hQdYbamT9oFLmDOVyNyiXOFttbRWGQKjOmAZHTFN+zIkLWLVR6vzAyrZ5vex6n5EO3VVmDIUqmRPcMHpBtSkQCpHUxj1UU8PqpRPQcIypQrYBxiO1byiKyu/cufOgFqonkGKxGLW8L/Gm2gYn7s/ui2Kt64U3HAU/21Kr2If5Z/SKtRAP1p0kyfmoLf2rSA1rdAkEAgymbuI9R9hIjU9ofGFDAZok8tv24ZIaG37RogbFppfV4LH4x7eJ7cHCz9ylLec+4iRz/mGa8aMCTQdsFdtm5/IIpKZthdSsy88WKvZ6CASCszYy4bbF3tvvaZo+hXZczAHGGnUYV4aEhVVeSJL8E9Pn8F7zjvssarW24/CFrdCLVUHyWc8tTsSNDp4nQWqYXeLg4HD/vQwfxvS+Xbms992a2P5QL3WFK3J3qJe6QZ3EFa6qBsJlqTvUSt3gmnYQ1EndoUI+EM4aw+BE4mg4aQiHM5oAuGgadq84PvBekWHIvSJjwL3jCp97R9X+94rTx8NhddC9t6I7ZXGqa9wvMwSE4OCiAcm7FCPuFKVMgtOaYDijGgqnVcFwQh0GBYZxcCB+ChxJmQEHNOFQqAu6Vynrc+umsseNBoXT3fq4HlAv7QGXZb2hWtoPKhWuUKUZCKUKTyhT+0Kxfui9Y+rQqh2KkSnJKwe1GM3OxVQvwuWsduTh6qQRUB7XHz40eEGlMRCK5IGF92Y/tILo8xh5jcRiG5w2UuI+DOgxwmq2bMnkJujbt28XTO3BlBfbvpxAxxbFdmPZB8BKHkiuvEMPYivlNhZC5JEapvu0RGpoWP6CTx7obcTk8lZIDZPcW3pYMA3nC4IgXuTug3gAqeHk0PgSG/bhaHL+3P5l+7gBCzny27AB+x2rBbN10Zq0xz0mt0+5Dx7+jg8kQRBY7KAlomkremAdPFvpJ/45tYPUUJs8S5Ik9jc3Rxon08WYSme7xlYEbY84YVo1aK7gvUQS7tixI3eip2maTrTFo9nulU1s/6Pmi8RoWwKzhQz+fEKk9gNFUa9iWSjic3n/25ej+95tkPaHq3IXuC53gytSV6iTuEC9zAOqY12hMnqAldCq49ygSjEQirQBcErpD0X6YVCdGG7Vii4pvaFU4wdXLCOgKikcTuAy1jQCzhmGQ9mynq/dW3jfE8VFQVJY7LHkKT9dTB4H5xR+UKzwgRpTKNSmjIJCXTicMIyGUwnj4LQhDEriQ+7eUj1f+nUcU1gn6XXnQ40LNKgGQJW8H5RKB0CZ2gtqE4OgwhQGJ5QBvx6Icz+5eXb3F/v5PlrEt/OCvkMO6EeUVuH7GOIGwFW9N5Qbh8JpddCZytkPriCKLna2AoGVvLjkgX85NxU/Z/AN3zb07dsXU0lMIpEII9jRwMofbE2Ec3xU8b/AEI8WBgMau/GN3k0eUtt5IUmRJNloVLcBo8Exnsi2ne0a2KR5TA9qkqCOSfckSVrL+ti25+2DGg4mQTdBa6TGFhg8xjDMRTZlqkm/ckmNTboux+U/lujht8EFelOxkCHDMBhcim9qsh7X1r7t2NzrZs8JH3DMPpj3hJadeO3haLy3BaTy7y8bp2h8AKkZcbnNPVfu/cVXMbImiUbgEpBhGMzr/Zjfnu3abX3bkuC5YpUUrErMPa69vT2WkTrDve+2scDtT07wbQV7f5u8fQ23w9dHYsVm7vFZIKlZnWp8UrORJjqPiJvRPW7Xx/S7e1XuDFdlLtAgxaWdK1yWuUGdzANqZZ5QI3OHGpkX1MpwieoD5Uo/KJX7WV9bV6UeDFWKQVAp94ZKxSCo0w+Fau0wXLbBRXUQFMoD4bLUY9c91YBmFS8SLGET3teM/PRS4iio0PhCldQZLqs84LJhMFxU+MF5XTCcVAdaybNc7//HrbiO576MFpy6rHK6c9PkCzUadyhVuEGJ2gfKDAFQnhgGRzVh3+BSVRfTJUTZhry8GZnh497XjPi0RBcElXJXqDf4QEViKBzUhu2NiGi56CAHaHdAe8PHBEHcoCgKBypfsPzKFYIgMIWpRVJD4KDDarF48wQCwWWM5cFZk7X5YJwRCmpdP+GSQCAQfMi+wwCLCaLtjx9Th7ZErCqKS0BcvmJEuk2wZHM9vtWKtw8CNT4st4z7XWflJlaRIggCy3rzycMD5ymBQICloG3bW4UgiI/Y/ZrVOeOmSdmEHfy3aZpWUhSFBnsshYQltW1Bm5iKhrP8d9i3AoHgPQxQfRih2YDbsUHPGFeFr5PD7AUscY79igSJgulj+B3+VoUVMNg4KH7/PjZwucQpqohLa66gRmT1SrZGahheicZ21KxwH7ZK7R2xWHwHtXwkDtTU+Tuix50kSSnDMMVsn7b42j2e4MTyjUAguEQQhLaF9xYIMWuBXVo2WRVwK69g3BuGMGEpLaz0wr6h3nr+rODSGe3P1lcB8IDLXNTUUJNETR4J3SaYB42T+x3ielSP27Ux/e9eUbhCg9wN6qQuUCtzhzq5B9TKvaBW4Q01Cm+oQi1K4QPVch+okftAnXwQ1EoHWomuTuYJl+XeUCfzhjq5L9QoB0OpZBCUKwOhTOYPxXE+l0rlHs3sKUvm+Xtslw2vuJAwwmoPu6Fyho/UzlAn6w81Kqxv5g9nJN5QphsCNQbf329G2V/8LNb+fJ3W806ZygvOyz2gxDAMqtPGwjlDCByL9fpoW5xbvCW6Z7O2HoYjplHRRwwTfinRB0Olwh1qtL5wwRACBw3BG7AcOH97HtAriZ4XXPq8KBaL57Yg81D7YWPO+LYOPpCM0TM8BZcnaIvAOCuapq21vmiaxnr5WDUWXeXoOEBPX2tllnH5gcnKeG5zkcA4gpUuIluwwyEwjARfvGHdjxVczqCmgu3x+wQ1Ygz6XcDZnrsfSjON9wGk9g92WYx95WlnZ4d5hImY28jmvmJdMRP7hinURpot6R8Culu3bu729vaTRCKRgqKolfiCGfQQorBxbflYeRYJsFOnTthHLZHLYwPtq+x9xRfIHEOhafoYajDoOGKLPc5qhdSw9AhOfmirOuXg4GDb7xjmveL7JtjMjxZDabB5LK+EDgX2tXufYRYAaybhCn6HZdz3o4bHvi2sxbJfWOSAYRgsMfQWkrWtojGH0HA1sZVhGBwnaIceg8fF2m2268dlM74yEEsg8Y/PlmI3ot0PnTnYVzzB8JsDxLXo3rerY53vXla4w2W5h1Urq0btTO4FNXJvqMKofaUPVKIXFEMmFD5W8mqQesEViSdckXo0Sn0c2uO8oUHhC9USb6hVDoGr6kAojPX9Uq9xa1bh4x0Xl46HVOHbThkioEziBLc0/eETdV+4HNsDruu8oEbrA0USd6jW+aG97Pe6haLihqhOFy+qvO+ckfvC+fgwuJQ6EU6ZRt3ZJ/c+t3XJs5INi9pesZaIJDp9IA/ZWJQ05V6FMQTKZO5QqfOHE+rgXwvV/vyUo9aA9gp8ACk00LYmj/FgOGJVDlzeYWwPTdP40uTBbLI2lop5lOM1nlsr0hLwuPztbNJSm/jdw9pptt8DSA3jwLC0jxXoXEEPJlYpwSRz/IsaRwtOlzYDH0bsY4xVw3guFKwSgRkJj6r9PQ7QjoovtsbAVJFINArFwcFhVLdu3UZhcjl+xlcI8vfjoA9FUaNxf3Yf2zGs3xEEgaaIB4YyYTVdfFEKvtmLoigswolv58JioSj4ORtj/rBPWguE5gLHOL4ARyQSSTCRHTVce3v7V+3t7fFtZnL25TjWcYD9i9oq9/pFItE49GK2EnuJKxxvJEO8boqiRnFFJBKNtMaq1cf2v10R53q3WukJ1QovqJR7QqXcCyoVA61SofS5LwpfKFf6WpeYl2WecE3qfl8kbnBNgn89oD7GFepj3eG6wgcuSzyhQT4QPtL6w0WZ/x+rlT4a27sIbMD/zyqDok9qwv9Rp/OFa7Ke0BDdBa7LesM1jQfUqtysoRqX9b5QKnH/vTSSKSlf2u3SGU3gncKEMXAxfQYcix97e69k0NbdUR3H9XvEdCY+suR9h+xVhpZXmSdDqdofSmWeUG4KhuPa0FtntW58w/tTPEFw66nxSO3nJ1Sv7CkeAehEQSLBkAt83SAKfsbqvi05th4G9n2qndn3y/bq3bt3V/5xWtNA241qmdPtMon7XaxOUaH0hnKF131RDoRyJdrPbIL/D4JKJCyZh5XMrqJI3eCKDP96wOVYV6iPc4XrSm+4HOdulZtqH6jRBsI+6eBd83TN05aOL3HzKJAOu3TdHA51kl5QvtARPta7Q63SDSpi+0Gdwg0a9L5QLHX5o2pxl/IalUf52cRxcCJpKrynG/vFDtXQdQcsz7hYWn9ZwwOBL2OpUw9TndaE/1xmioCLUm+o0g6BsoQIOK4KPvl+8gNnyqdoJzBBmw1+fUpqT/FkUCl3ul0s9bhboR4I5WjHUnpZpVyFgpoakh3+9YQKpRdUKb2s9jYM+0BnwmXZ/WUrekprJa5QK3OBq0ovqJW4QHWME1yRu8FV3RDYI/e/NcnY734cCQe7IgnqpMTbWGkK+qVe4wHVcX3hRsIQKJN7QenyfnBZ5gz1Gh8ok3n9fk3lWnE5MazuaMLkO/tUo8pXxfrIo2Z1flAU9ENxVf6sz0Vp8Nli/XAotjpAvOCKeTic1Yb9cVYyMOuspZnt6CmeINhy3k2yKZ6S2lO0CxVyp9uXpB53yzXe1rCIUpUnlCk9oVzlAeUqT6jAFCSlB1Qq3a1SpXSHGjSkK9xY8WiUarkbVCtcoU7lATVSZ6iK7Q910gFwResNp7UBd9fE9MqfMKG5R7JI+YxzsdTt0GWDP9xIHArVhqFwUekPVXJ3uCJ3gTqVN5RIB/5erfasLdYMKTuqD9//mtJvuiXywfaCh+FbmZfjOVVoVoF8+K8lqgAolbhBg8EPPkwbCcdjva/vXNT94fWZnuJxYY81/gUCARYNbBK+8pTUnqJduE9q7nfLNV5QpvaEUpUblCndoFzlBhUqN6hSuUKV0gVqrOJs/Vxp/c0dytUoHhxxt/5WqXSFKoUTVMn6QbW8L1zGPM1EP9i3pF/Dhihxi+/ULIrqPK1e4Vl71RgM51X49qrh0GAYAh+qsF1POC8ZeLcgxu3Gm1G91+2TOYUR8HjLzUZAJLV7edjCA/IpN88bxlgJrUoyAD5KGALlKp+7x+c9+3JkRPtI8ykeCDRy45vBrUUIWyA1m6PgKak9RdtQIe9/+5LM1UpqSEplWHYHiUvtCpUqZ6hWOkGNcgDUWaW/9XOZxg1KNR5QovVsIqUoGjcoUQyACtUAqNE4QbW6P9Sp+sJ1oyuck3v89VZ0v3WRsuZksVNL2FVGdVbukPh8esI4Hs4lToMa/VC4pnCFy7g01gXBgdhBX86P6byovQP9LEHQq+KHjd2lml50wBAJl4yjoCLOGWqkTvCh0RcKo3pdPT6HarZUfoonCqyZX8ENVuaR2h9syEr7Jq//cFgsFnupVOoUGxvbV6/XP7tw4cJnLRbLf7fJBEmtWO52t1zrAeUa1NBcoVzpDOUqJ6hQO0GVcgBUqwZArRKlH1Sr+kOZxgVKNB5QrG0qJToPKNG4wiVlfyjXOEOt3hVqtEhs/ayEWJsQALtlQz9bu9wd47WaEVNsBNFdnjBId8Cy4Mre5EVQrh8J1+SD4LIqEC4njocT6lF/my5zbbVw4KMgMvIZx4J5A6buloadOJY0569TpulwThMKpWo/qNQFwCWV78/H47qnxsY2ewPOUzxZOGOMFUmSf8MqtxjkyhHMM/yILR/0lNQeAIVCMVQikaSbTCZTamqqUq/Xz1mxYkWLryP8r0GVot/tcpX73Sq9J1Tq3KFK7wFlSicolveHCrUzVKicreRWqbov+LlM7QKlancoxYj+JuIGpVoXKFU5Q7naBSq1LlClub9/KSaZG0PgXMIk2BE7/PSWF3o1i3RGBO0M6vrWau3CtUmSS6f1L/x5VTkcqqThUGucDmd1U7+PVQXE8vd5VHSLIjpkyVyiTqtDy87oRvx1yTQaLmiD4aQmGAqTJ8CppEmwX+W/91XD/Rd2PMXj4RFd9RhjhxHoKSRJmkiSjGcro6IkY5ClnZ1dwCMe678S2DfR0dHTVSrVy5mZmRuzsrLezM/PX7pz584nksb1b4sqea/blSq3uzU6D6jWusNlA9Ymc4EypTPUaD3ui84NqrX35f5n3LYlwUBZN+s+9//Hz25QrUOi9IUybRhUpkyBU6oxf+yIGrR5mKXlwoH9tp4Vp1jkU17Tj33lwjK/uiLJqN/KUxZAgW7WP9+L88W3N7cN44iuh+Z2G/GudHDGNolv3QV9KJQahkGJ3APKVN5wwTwO9qfMhh2aMRffMfo0ebnMvwB0dHS0W05OTqDFYgkoKCjw+/nnnzElpb0PNxkXF9d/1apV/h988EHAyy+/PEypVHqFhIQ8sVkdX4eWnZ3tsW7duqnvvvvuxLKyMicAaE3Twu8xwBLL3GCoD1fwOxRr3GFsbKz9iRMnPJOSkgJiYmICt2zZMgiXWU+gT/DYwoyMDPft27cPXbt2Lb5HlpoxY0a3LVu2+B8/ftzXZDK1lqnRJtTV1XXZs2dP6Nq1a6fgvV29enWLUfltxdq1awM3bNigM5lMq00mU47BYGjRZt1WyOXybhkZGb7r1q3zX79+/dDXXnstaOPGjZ6bN29u9wpm9uzZXaVSaUh+fv6YLVu2eO7atauZOapdqFz+7O0Kaf+7aDurkg+AOrUr1KiwPpmT9W/bxbnZd9VW58EgqFAPhVJc6hlHw1H18B/zpM55r48hWiweSFgI0nMW0e/o7GcXXDSGv3LcMqXqPcWoD89E94ol4KGDWdB1AtERlhD9jyx1GZsf42YuUA0+WWQc/o9CVSBcUAyEEoU7VCtd4Kp+IJSmToQ98ZOr34geOGdzbJvTbZ4olEqlyGAwxGVkZOxKT0/fnZeXtyM3N3eFTCbD9JTHtpVg5L1arZ6RmZn5dn5+/u6EhIR9Fotl28qVK7XHjh1rcXJpCwCASU9Pn5qYmPiW2Wy+kJubW5ifn7955cqVox5AbI+EefPmdc/Pz9dkZmbuxD5Zs2bNDqPRuDIxMXH00aNHm3nT24KFCxc6mM1mVX5+/oHMzEw51p6bO3euZ15e3svr169/Kz09vaUcxDbhjTfecMrJyUlevXr18ZycnFKz2bw3Pj5+cntJecWKFT2zsrIUaWlp21NSUo6lpaXt1Ol0uszMzIdWpXkYcMLLyspavWLFip3x8fE7srKy9q9evXptYmIi5vg+NnDiSExMTEhKStqfl5dXkJGR8eamTZtC+du1CzXLut+ujut3t04+AGqk/aBeidUv3KBWdv//JyHVcQOgOs4VauQDoVQ6CMp1wVBlmQQfxPr/fe8LPTIvzH+2pdxDK3Z5Ecynr/fp+UFWj5l5ir6W9YlOCaoNgVPMMWHD3lwaPuRIzHCfkrhRXg3RI72L5gf6bXuh/zDLvO6TViztJrsu67f2osLvwkl9yA8lSSPvlptCoUTtB2VqH6g3DYYbpoFQpHK7u18xpKzcFLT4qLJ5uMn/NgCAtlgsWRkZGX9YLJZP9Hr9GY1G86XZbD60atWqdg2o5OTkJRkZGX/T6/W34+LiDmdlZdWtWbPmb2vWrElavXp1e5Ysgk2bNo3IzMwsSkpK+ptWqz2t1WrP6fX6H7Oyso7t37//gQU6HwZ83ZvRaFyfn59/Jzs7+9P09PTi5OTkL9PT008jafK3bwuCgoLsUlNTX1qxYsW9rKysHWh4VygUHkg+OTk5/0xNTUX772Nj69atndetW5cRHx//fUpKykcZGRnVKSkp17VabdtXHBzgEnPt2rVavV7/hVqtvrpy5coP1q5dW52WlvZlSkpKNmpa/H3aAovF4pGXl3cpLy/vjkajuZiamnoqJydnb2xsLL8KTJuQk5Mjy8jI+D43N7faYrGcSEtLO7dhw4Zp/O3ahesxvW5flbvf/VDtCVfkrnBd7Q43tQPhmgrzOLFix5MQV2iQ3M80wKKT+MLgmsQRUJIwGg5Ihn53Itbj1drVnfmF55ogMpKgZrxPuK3MGf7qpqxZdW+YphXvNow/fVw76vA59eh9lxRjP7gQF3LqZOzAi6finKtPyTxuFasG/nhR63+vKj4IyuOD4IzUEy6ofKAuKRiupYZChcL9r80x3c++GNNt2j1t7/Y81E8U2dnZarPZ/LvJZMIZfdaKFSvqcnNz723btq3VN4k/CjZs2DA+Kyvre7VaXTN79uzglJSU3NTUVNBoNHstFkuzbI9HhVQq7WIymV7Pycn566WXXno3NzfXf86cOaHx8fFHcnNz76anp+fxU2TaCMpisWSsXr0aUlJStkkkklHZ2dlvpKen301OTn67PeeOGmx+fn7yqlWrIDs7e8/WrVvFmzdv7r5hw4aTeO7JycntIjWNRjMuLS3tI71e/3lCQoLk1VdfHbdy5UpFRkZGu4pMGo3GIZmZmbWZmZm316xZo83NzfVZvXr1MrPZ/JnBYPhMp9O1iyiOHj36zKpVqwpWrlyJE0nGhg0bphgMhjF+fn5oFngs4ISdlpa2ZeXKlbBixYrXZTLZ7Ly8vNmbNm3CUvVPDleiet1ukHrevYaEE+dqzRS4IveEBpkn1EuR2NovDVJ3uC51hWsyN7iCQboyLyiW+0CZKRxKUyfAMVXQTwflnu9dUnabenJXq9UmiOlAdN5sHv3O3vT5cCQ1EgoMk+CMctS9S7Lwv8pjQu/WxAXBTeNQuJU4GK7qMBPC02o3uyj3hAtKHzivHQJFxmAoig+Di2rfrxuWPfvWmrnUOGLzv3bJyUdaWtqy5OTk71Uq1cmoqKiktLS0m2az+cuNGze2K8zEYrGEZWZmfpqSknLVYrEs1ev1bycmJn6SnZ2tb4+mZrFY3Mxmc31mZuZP2dnZjcSbm5u7OCsrC4xG4wWDwdBafftHQl5eXkJWVtbdvLw8LHtEbNy4MSI+Pv4fWq32I5lM1h5NUJCenq4xm81/Go3GdyIjI5lt27Y5rFq1al9ubu4/09PTZ/J3eFRgaAUuO/Pz8yE3N/ddi8ViTdIuKirqUFFR0a4xp9VqF6anp995+eWXT9bX11v7Vq1Wd87NzX0P+zw9PT2Vv09bgNqxTqfbiaSWkpJyODs7ez4APFZutQ1ohkhMTIxPTk7+OScnp9psNq9asGDBtJqamidbNKBkQZ+fqiQ+9+oVflAR4wmVMZ5QHecN1ZKBUCPzgRqpz///y/3c2nf832U+UCf1hhvqgVAXO8CaWnVVPwRK5N5wQekHJYmjoDBxHBzRR9w5ohxcsnl532zlErsgAprbjzZbiO7vqyLe+MA0B86aZsFF9QSoko2AhrhQuBEzDD6O8YdPtH7WUty11jg7dyjX+ECxLgCKjGFwNmEUHFYG/7JN7lOwP7qv8vcFhBc/yf7/AjIyMqLy8/Nvm83m7zUazSWDwXBUq9XKtFptu4zLMTExESkpKbfS09N/NpvNZ+Pj47/KzMz8cMuWLfz3hLYJL7/8sndWVhYurb7FNmzfo7MAtSmj0Vi1cePGduXQ5uXlJScnJ99NSkrKxP9xeRQfH/+F0Wj8Kioq6rGN46ipJScnxyclJd1LSUl5E//fvHmzcOXKlXuys7N/j4+Pb/YCoEdFRESE2Gw256OGuX79eiwD9MQQHx8fZ7FYYNOmTbtsZIPacG5u7sa1a9ei1pnP36ctwAR0iUSyOz8//8+EhIQTGCrC3+ZxgM4qk8mkT0lJKU1PT/8qPj6+6LXXXpvdXrtrE5xb4vZrpToUGkyjoUoTDpWaUKjWhUOVJuyJSY02BG4mhgK+B6FGNQg+Th8FdUnhUKjyh9PaEDifMgGKc+dAgWUavCcL+T1f6Xs8O29YzE717OBD8+JcT46JtGpvK0KInrujxu0uTF4MF/SzoUw9CerVY+CGYgTckofAJ/KhUCf3gRJM9dIPgcqkMChNGgEnDMPvFBhHf7FPFV6+UzJ4o17WfbhXZOuFGv/VSEpKisrMzPwlJyfn5ooVK9Kys7NHa7Xax9akbEhMTAzPysr6PCkp6euEhIRck8l0ymw2/5SSkmJqz/Lwrbfe6pWbm3smIyPjbkJCQmJiYuIzGo2mx6pVq3Jyc3MhOTl5z+bNm1vVwB8F6enpKenp6ZCYmLjupZde6p+WliZH7So9Pf2CUqlsVwhOdna2NDk5+c/s7Oyjhw8ffn7lypUDcnJyzlssll9kMll7CJ+Mjo6WZ2Zm/oH2P5PJ5IvLuhUrVrjGxcXhkuuxH+SEhIRJycnJt1euXFn/zjvvjFi3bl1HrVY7NDk5+VJ2dvYfWVlZWDT0sbF///7OFovlA7QrrlixwiiRSAZaLJb+er2+PVoVvqCoa1ZW1pD4+PiYtLS0i0jAubm5r3/22WftHt+NKIzyLj6nDPvxkmH8n4XaUXdQzhvG3inUjLxzWjn8ichZRdidUk3wnYuKQXfOy3zvlBhC7hTHh905rhx254Ak8M4R3cg7BSlT7hxKnPzXftNkeC9+/B/vxU+6sUM67+jRBdJVp6cunhPtNnTAMr+uXrsWTDxy3rgUTipnwnnVJKjUjYda3Ri4rAmHGnUIFCqHwWFF4J9HtUE/H9FFfLlDFVb33vLAPWfUw0y12WGj38pyxcH0f04740Cg0+kMer3+rlar3f3KK688+6RitdAu8sorr/xgNptLZ86c+axWq12enJz8V2pq6kE2ROKxgJ7PvLw8FToJUlJSGiwWS5rRaMw1m80fpaenf5qWltauLBAsf67VanNxGbdq1apLq1evXo/2JIvF8g3aH1Gz4u/TFqxfvz48ISGh3mw2f45OE7PZjKER3yckJBS319un0+kGZ2RknE9MTPw5OTl554YNG5JzcnJeVSgUWADzsR/kvLy83haL5T2LxfJTbm7uofT0dENaWtr7KSkpP5nN5pOrV69+oI36YaisrOy5cuXKk+np6X9lZ2dvTk1NzUxPT8+RSqVNXmvZRlDx8fEvZmVlvbV+/fp4i8WyJy0tDWQy2cvr1q17ck66A9H9p5fHuLxcpBi677x0yJ4L8mG7L6lCdl+SB+6+IBnyZCRm0O7SKKfdN1QDd9dJXHcXzuuxu1TiurtaO2T3Bbnv7kJV4O4T2mG7D0iG7D6kH77nVNLIQwdUIw8fjFuw98Qi7btnX4hbrZ8850WvcK+hR6aHpxVLZx8vkE0tOyIddfWEcsTHJzVht04rgz4+pwq8etIQXnJYF36wQOa76R25tyZTOmTcmhc8vSti3brjy1741/9/DRiigIMnMzPzG51Oh69he1Igc3Nzo1auXHlLr9e/h18YjcaI1NTUD7Va7VmZTNasKm1bgA9ZSkrKiqysrA/T09OvJyUl3UhPT29ITU1NbG9MVnBw8LNJSUlr0tPT0Qt8PTMzsyYxMbHMbDYnZWVlYSn1dgG1SNRWU1NTr1gslmuJiYkfpqam1qxatSq6vSEju3btYtDZYDabL2ZmZn6PHu2UlJRKk8mkxeUpf/tHBU50SMaZmZkH0KSAdtIVK1agCeBUUlLS1PYS/WuvveaXlpZ2zGQyfZGdnV2ek5NTm5KS8kFMTMwQ/rZtAKVQKGRpaWkNWVlZVdjHycnJhSqVqj3acAuIIOjvFhFudVF9Aiqj+/rXSfv631Q5+1+V9vW/Gv1kpG5Jd/+6SKE/JPT1/5uqh/+ZMML6/z/NHv5fJfj4X1U5+1dG9/A/PL+T/wVpX/86s4//kSj3gKLYRcFnooyjT81XTEyYszTQbkxIz9LRHm4Vi8aEHVeNm/K+JHT+W7EBy3bKBkcdUfkuO2z0mVeYEDLpQnxoUFlUN/fNka07Hf6vor6+HuO9JqLmo9frR2BwKH+bxwQpkUiCjEajTCKRTMEBlpmZ2c9isUTFxcUt1ul0j+1BtAHjo1auXLksJSUlU6PRWJKTk+clJSW1m3R8fX07m83myXq9XqJQKBSJiYlyjUYzHXMd+ds+LpCUDQbDYoPBkJOYmJixdu3ayJMnT7YrLMKG2bNn2+Xn50/Izs4+azQav0hISDCnpKR4t9eOhN7EnJycYIVCocXzzs3NNa5YsWIkxjryt20rcKmp0WgWKJVKaWpqqjo9PT0+MTHxxeXLl/PfTdAWCKKiogampqZK0fOenJycYjabxz9xR8G/CQRAtLAEiyQoAoNl/QkhBs1G7mq1NPW/FVj7Fg7MZs6SdoJ2cXER2RKecbZHbx/Kk1riooYQGRnpOGjQIByoT+p+kEjuuAx90ufLA43njnYjzI7g/9geoEfVYrGsMRqNpy0WS3u8tS1BNG3atA4Wi+WxNT8+2PLzDPb5hAkTRKhVshNsu/vdYrEwRqOxA2aKPInjPcVTPMW/AGq1un9KSsqrGESdlZX1pEntKTj4f1A43XtOjq1sAAAAAElFTkSuQmCC";
+const LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAATUAAAA2CAYAAACm/A4eAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFxEAABcRAcom8z8AAE5tSURBVHhe7X0HWBTX2v/szOzsUuny6r33GEAsIAoiiiiCKGoQxYYSFRV71Fii0RiN0agxRq/GbrDG3nvvvbeAiihFuvS+O/N+M6z3/l/uve+9OrszsHOe5xxczs4uu3Nmz3nnLd9DkiRBQkJCQkJCQqIkQKUdQEJCQkJCQkKirEjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmXG/wOgUsuAoFa/AAAAAElFTkSuQmCC";
 let state = {
   operadores: [],
   metasScanner: {
@@ -162,7 +180,7 @@ let state = {
   arqgerTotais: {enviados:0, nids:0, aprovados:0, consertos:0, pagos:0},
   nfFechamentos: []
 };
-let monthCache = {producao:{}, envio:{}, nas:{}, higienizacao:{}, qualidade:{}};
+let monthCache = {producao:{}, envio:{}, nas:{}, higienizacao:{}, qualidade:{}, aprovacoes:{}};
 let currentTab = 'painel';
 let todayStr = new Date().toISOString().slice(0,10);
 let refMonth = todayStr.slice(0,7);
@@ -172,6 +190,16 @@ const SCANNER_LABEL = {SV600:"SV-600", ViisanTR:"Viisan TR", CamerasTR:"Câmera 
 const SERVIDORES = ["Servidor1","Servidor2"];
 const SERVIDOR_LABEL = {Servidor1:"Servidor 1", Servidor2:"Servidor 2"};
 const FUNCOES = ["Digitalizador","Higienizador","Controle de Qualidade"];
+
+// Lembra o último operador/data/escâner usado em cada formulário, para não precisar
+// reselecionar tudo de novo a cada lançamento (só reseta o que é específico do dia).
+let lastDefaults = {
+  producao: {operadorId:'', data: todayStr, scanner: SCANNERS[0]},
+  higienizacao: {operadorId:'', data: todayStr},
+  qualidade: {operadorId:'', data: todayStr},
+  envio: {data: todayStr, responsavel:''},
+  aprovacoes: {data: todayStr, responsavel:''}
+};
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmt(n){ return Math.round(n||0).toLocaleString('pt-BR'); }
@@ -190,6 +218,21 @@ function weekRange(d){
   return {start: monday.toISOString().slice(0,10), end: sunday.toISOString().slice(0,10)};
 }
 function inRange(d,s,e){ return d>=s && d<=e; }
+function shiftMonth(mk, n){
+  const [y,m] = mk.split('-').map(Number);
+  const d = new Date(y, m-1+n, 1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function monthsBetween(mkStart, mkEnd){
+  const [y1,m1] = mkStart.split('-').map(Number);
+  const [y2,m2] = mkEnd.split('-').map(Number);
+  return (y2-y1)*12 + (m2-m1);
+}
+function monthLabel(mk){
+  const [y,m] = mk.split('-');
+  const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return nomes[Number(m)-1]+'/'+y.slice(2);
+}
 
 async function loadJSON(key, fallback){
   try{
@@ -248,6 +291,7 @@ async function loadAll(){
   await getMonthArr('nas', refMonth);
   await getMonthArr('higienizacao', refMonth);
   await getMonthArr('qualidade', refMonth);
+  await getMonthArr('aprovacoes', refMonth);
 }
 async function persistMetas(){
   await saveJSON('sp-metas', {
@@ -307,6 +351,76 @@ async function ensureMonth(type, mk){
   if(!monthCache[type][mk]) await getMonthArr(type, mk);
 }
 
+// ---------- EXPORTAR / IMPRIMIR ----------
+function downloadCSV(filename, headers, rows){
+  const esc = (c)=>{
+    const s = (c===undefined||c===null)?'':String(c);
+    return '"'+s.replace(/"/g,'""')+'"';
+  };
+  const csv = [headers.map(esc).join(';')].concat(rows.map(r=>r.map(esc).join(';'))).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  a.remove(); URL.revokeObjectURL(url);
+}
+async function exportCurrentTab(){
+  const mk = refMonth;
+  let headers=[], rows=[], filename='dados_'+mk+'.csv';
+  if(currentTab==='digitalizacao'){
+    const arr = await getMonthArr('producao', mk);
+    headers=['Data','Operador','Escâner','Arquivos','Caixas','NID','Observação'];
+    rows = arr.map(p=>{
+      const op = state.operadores.find(o=>o.id===p.operadorId);
+      return [p.data, op?op.nome:'', SCANNER_LABEL[p.scanner]||'', p.arquivos, p.caixas, p.nid, p.obs||''];
+    });
+    filename = 'digitalizacao_'+mk+'.csv';
+  } else if(currentTab==='arqger'){
+    const envio = await getMonthArr('envio', mk);
+    const aprov = await getMonthArr('aprovacoes', mk);
+    headers=['Tipo','Data','Responsável','Arquivos / Aprovados','NIDs / Consertos'];
+    rows = envio.map(e=>['Envio', e.data, e.responsavel||'', e.arquivos, e.nids])
+      .concat(aprov.map(a=>['Aprovação', a.data, a.responsavel||'', a.aprovados, a.consertos]));
+    filename = 'arqger_'+mk+'.csv';
+  } else if(currentTab==='higienizacao'){
+    const arr = await getMonthArr('higienizacao', mk);
+    headers=['Data','Operador','Caixas'];
+    rows = arr.map(h=>{ const op=state.operadores.find(o=>o.id===h.operadorId); return [h.data, op?op.nome:'', h.caixas]; });
+    filename = 'higienizacao_'+mk+'.csv';
+  } else if(currentTab==='qualidade'){
+    const arr = await getMonthArr('qualidade', mk);
+    headers=['Data','Operador','QC','Finalizados','Certificado','OCR','PDF/A'];
+    rows = arr.map(q=>{ const op=state.operadores.find(o=>o.id===q.operadorId); return [q.data, op?op.nome:'', q.arquivosQC, q.finalizados, q.certificado, q.ocerizado, q.pdfA]; });
+    filename = 'qualidade_'+mk+'.csv';
+  } else if(currentTab==='painel' || currentTab==='dashboard'){
+    const prod = await getMonthArr('producao', mk);
+    headers=['Operador','Escâner','Total mês','Meta mês','%'];
+    rows = state.operadores.filter(o=>o.funcao==='Digitalizador').map(op=>{
+      const regs = prod.filter(p=>p.operadorId===op.id);
+      const total = regs.reduce((s,p)=>s+Number(p.arquivos||0),0);
+      const meta = regs.reduce((s,p)=>s+metaDoDia(op,p),0);
+      return [op.nome, SCANNER_LABEL[op.scanner]||'', total, meta, meta?Math.round(pct(total,meta))+'%':''];
+    });
+    filename = 'painel_'+mk+'.csv';
+  } else if(currentTab==='historico'){
+    if(window.__historicoData){
+      headers = window.__historicoData.headers;
+      rows = window.__historicoData.rows;
+      filename = 'historico_'+(window.__historicoData.opNome||'operador').replace(/\s+/g,'_')+'.csv';
+    } else { toast('Selecione um operador no histórico primeiro.'); return; }
+  } else {
+    toast('Não há tabela para exportar nesta aba.'); return;
+  }
+  if(!rows.length){ toast('Nada para exportar neste mês.'); return; }
+  downloadCSV(filename, headers, rows);
+}
+function printCurrentTab(){
+  const label = (TABS.find(t=>t.id===currentTab)||{}).label || '';
+  const pt = document.getElementById('print-title');
+  if(pt) pt.textContent = 'Tempo Real Produção e Comunicação · '+label+' · '+monthLabel(refMonth);
+  window.print();
+}
+
 // ---------- TAB RENDERERS ----------
 const TABS = [
   {id:'painel', label:'Painel', color:'var(--brass)'},
@@ -318,6 +432,7 @@ const TABS = [
   {id:'higienizacao', label:'Higienização', color:'var(--green)'},
   {id:'qualidade', label:'Qualidade', color:'var(--purple)'},
   {id:'operadores', label:'Operadores', color:'var(--coral)'},
+  {id:'historico', label:'Histórico operador', color:'var(--purple)'},
   {id:'metas', label:'Metas', color:'var(--ink-faint)'},
   {id:'fechamento', label:'Fechamento', color:'var(--red)'}
 ];
@@ -328,9 +443,34 @@ function renderTabs(){
   nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{ currentTab=b.dataset.tab; render(); });
 }
 
+function renderToolbar(){
+  const tb = document.getElementById('toolbar');
+  if(!tb) return;
+  const minMonth = shiftMonth(todayStr.slice(0,7), -60);
+  const maxMonth = shiftMonth(todayStr.slice(0,7), 12);
+  tb.innerHTML = `
+    <label for="mes-ref">Mês de referência</label>
+    <input type="month" id="mes-ref" value="${refMonth}" min="${minMonth}" max="${maxMonth}">
+    <button class="btn secondary" id="btn-mes-atual" type="button">Mês atual</button>
+    <span class="mono" style="font-size:12.5px;color:var(--ink-faint);">${monthLabel(refMonth)}</span>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="btn-imprimir" type="button">🖨️ Imprimir mês</button>
+    <button class="btn ghost" id="btn-exportar" type="button">💾 Exportar CSV</button>
+  `;
+  const mesInput = document.getElementById('mes-ref');
+  if(mesInput) mesInput.onchange = ()=>{ if(mesInput.value){ refMonth = mesInput.value; render(); } };
+  const btnMesAtual = document.getElementById('btn-mes-atual');
+  if(btnMesAtual) btnMesAtual.onclick = ()=>{ refMonth = todayStr.slice(0,7); render(); };
+  const btnImprimir = document.getElementById('btn-imprimir');
+  if(btnImprimir) btnImprimir.onclick = ()=> printCurrentTab();
+  const btnExportar = document.getElementById('btn-exportar');
+  if(btnExportar) btnExportar.onclick = ()=> exportCurrentTab();
+}
+
 async function render(){
   document.getElementById('hoje-label').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
   renderTabs();
+  renderToolbar();
   const main = document.getElementById('main');
   main.innerHTML = '<div class="empty">Carregando…</div>';
   if(currentTab==='painel') main.innerHTML = await renderPainel();
@@ -342,6 +482,7 @@ async function render(){
   else if(currentTab==='higienizacao') main.innerHTML = await renderHigienizacao();
   else if(currentTab==='qualidade') main.innerHTML = await renderQualidade();
   else if(currentTab==='operadores') main.innerHTML = renderOperadores();
+  else if(currentTab==='historico') main.innerHTML = await renderHistorico();
   else if(currentTab==='metas') main.innerHTML = renderMetas();
   else if(currentTab==='fechamento') main.innerHTML = await renderFechamento();
   bindHandlers();
@@ -354,82 +495,78 @@ async function renderPainel(){
   const envio = await getMonthArr('envio', mk);
   const hig = await getMonthArr('higienizacao', mk);
   const qual = await getMonthArr('qualidade', mk);
+  const isCurrentMonth = mk === todayStr.slice(0,7);
   const wk = weekRange(todayStr);
 
   const digitalizadores = state.operadores.filter(o=>o.funcao==='Digitalizador' && o.ativo);
   let totalHojeArq=0, totalMesArq=0, totalMesMeta=0;
   const opRows = digitalizadores.map(op=>{
     const opProd = prod.filter(p=>p.operadorId===op.id);
-    const hoje = opProd.filter(p=>p.data===todayStr).reduce((s,p)=>s+Number(p.arquivos||0),0);
-    const semana = opProd.filter(p=>inRange(p.data,wk.start,wk.end));
-    const semanaArq = semana.reduce((s,p)=>s+Number(p.arquivos||0),0);
-    const semanaMeta = semana.reduce((s,p)=>s+metaDoDia(op,p),0) || (state.metasScanner[op.scanner]?.diaria||0)*5;
+    const hoje = isCurrentMonth ? opProd.filter(p=>p.data===todayStr).reduce((s,p)=>s+Number(p.arquivos||0),0) : 0;
+    const semana = isCurrentMonth ? opProd.filter(p=>inRange(p.data,wk.start,wk.end)) : [];
     const mesArq = opProd.reduce((s,p)=>s+Number(p.arquivos||0),0);
     const mesMeta = opProd.reduce((s,p)=>s+metaDoDia(op,p),0);
-    const metaHoje = metaDoDia(op, opProd.find(p=>p.data===todayStr));
+    const metaHoje = isCurrentMonth ? metaDoDia(op, opProd.find(p=>p.data===todayStr)) : 0;
     totalHojeArq += hoje; totalMesArq += mesArq; totalMesMeta += mesMeta;
     const p = pct(mesArq, mesMeta||1);
-    return {op, hoje, metaHoje, semanaArq, semanaMeta, mesArq, mesMeta, p};
+    return {op, hoje, metaHoje, mesArq, mesMeta, p};
   }).sort((a,b)=>a.p-b.p);
 
-  const envioHoje = envio.filter(e=>e.data===todayStr).reduce((s,e)=>s+Number(e.arquivos||0),0);
-  const envioSemana = envio.filter(e=>inRange(e.data,wk.start,wk.end)).reduce((s,e)=>s+Number(e.arquivos||0),0);
+  const envioHoje = isCurrentMonth ? envio.filter(e=>e.data===todayStr).reduce((s,e)=>s+Number(e.arquivos||0),0) : 0;
+  const envioSemana = isCurrentMonth ? envio.filter(e=>inRange(e.data,wk.start,wk.end)).reduce((s,e)=>s+Number(e.arquivos||0),0) : 0;
   const envioMes = envio.reduce((s,e)=>s+Number(e.arquivos||0),0);
 
   const higMes = hig.reduce((s,h)=>s+Number(h.caixas||0),0);
   const qualMes = qual.reduce((s,q)=>s+Number(q.finalizados||0),0);
-
-  const pDia = statusInfo(pct(envioHoje, state.metaArqger.diaria));
-  const pSem = statusInfo(pct(envioSemana, state.metaArqger.semanal));
-  const pMes = statusInfo(pct(envioMes, state.metaArqger.mensal));
 
   const imagensMetaContrato = state.contratoTJRJ.imagensMeta || (state.contratoTJRJ.processosMeta*state.contratoTJRJ.folhasMedia);
   const pContrato = pct(state.contratoTotais.arquivos, imagensMetaContrato);
 
   return `
   <div class="section-title"><h2>Contrato TJRJ — Itaipava</h2>${statusStamp(pContrato)}</div>
+  ${!isCurrentMonth?`<div class="card acc-amber" style="margin-bottom:14px"><h3>Visualizando mês anterior</h3><div class="small">Você está vendo os dados de <strong>${monthLabel(mk)}</strong> como se fosse o mês corrente. Os totais "hoje" e "semana" só se aplicam ao mês atual — use "Mês atual" na barra acima para voltar.</div></div>`:''}
   <div class="card acc-brass" style="margin-bottom:20px">
-    <h3>Total digitalizado no contrato</h3>
+    <h3>Total digitalizado no contrato (acumulado)</h3>
     <div class="big">${fmt(state.contratoTotais.arquivos)} <span class="muted" style="font-size:14px">/ ${fmt(imagensMetaContrato)} imagens</span></div>
     ${progressBar(pContrato)}
     <div class="small">${Math.round(pContrato)}% da meta de 4 anos · falta ${fmt(Math.max(0,imagensMetaContrato-state.contratoTotais.arquivos))}</div>
   </div>
 
   <div class="grid cards">
-    <div class="card acc-teal"><h3>Digitalizado hoje</h3><div class="big">${fmt(totalHojeArq)}</div><div class="small">arquivos, todos os operadores</div></div>
-    <div class="card acc-teal"><h3>Digitalizado no mês</h3><div class="big">${fmt(totalMesArq)}</div><div class="small">meta acumulada: ${fmt(totalMesMeta)}</div></div>
-    <div class="card acc-blue"><h3>Enviado ArqGer hoje</h3><div class="big">${fmt(envioHoje)}</div><div class="small">meta dia: ${fmt(state.metaArqger.diaria)} · falta ${fmt(Math.max(0,state.metaArqger.diaria-envioHoje))}</div>${progressBar(pct(envioHoje,state.metaArqger.diaria))}</div>
-    <div class="card acc-green"><h3>Caixas higienizadas (mês)</h3><div class="big">${fmt(higMes)}</div></div>
-    <div class="card acc-purple"><h3>Arquivos finalizados (mês)</h3><div class="big">${fmt(qualMes)}</div></div>
+    ${isCurrentMonth?`<div class="card acc-teal"><h3>Digitalizado hoje</h3><div class="big">${fmt(totalHojeArq)}</div><div class="small">arquivos, todos os operadores</div></div>`:''}
+    <div class="card acc-teal"><h3>Digitalizado em ${monthLabel(mk)}</h3><div class="big">${fmt(totalMesArq)}</div><div class="small">meta acumulada: ${fmt(totalMesMeta)}</div></div>
+    ${isCurrentMonth?`<div class="card acc-blue"><h3>Enviado ArqGer hoje</h3><div class="big">${fmt(envioHoje)}</div><div class="small">meta dia: ${fmt(state.metaArqger.diaria)} · falta ${fmt(Math.max(0,state.metaArqger.diaria-envioHoje))}</div>${progressBar(pct(envioHoje,state.metaArqger.diaria))}</div>`:`<div class="card acc-blue"><h3>Enviado ArqGer em ${monthLabel(mk)}</h3><div class="big">${fmt(envioMes)}</div></div>`}
+    <div class="card acc-green"><h3>Caixas higienizadas (${monthLabel(mk)})</h3><div class="big">${fmt(higMes)}</div></div>
+    <div class="card acc-purple"><h3>Arquivos finalizados (${monthLabel(mk)})</h3><div class="big">${fmt(qualMes)}</div></div>
   </div>
 
-  <div class="section-title"><h2>Envio para ArqGer (faturamento)</h2></div>
+  <div class="section-title"><h2>Envio para ArqGer (faturamento) — ${monthLabel(mk)}</h2></div>
   <div class="grid cards">
+    ${isCurrentMonth?`
     <div class="card acc-blue"><h3>Hoje</h3><div class="big">${fmt(envioHoje)}/${fmt(state.metaArqger.diaria)}</div>${statusStamp(pct(envioHoje,state.metaArqger.diaria))}${progressBar(pct(envioHoje,state.metaArqger.diaria))}<div class="small">falta ${fmt(Math.max(0,state.metaArqger.diaria-envioHoje))}</div></div>
-    <div class="card acc-blue"><h3>Semana</h3><div class="big">${fmt(envioSemana)}/${fmt(state.metaArqger.semanal)}</div>${statusStamp(pct(envioSemana,state.metaArqger.semanal))}${progressBar(pct(envioSemana,state.metaArqger.semanal))}<div class="small">falta ${fmt(Math.max(0,state.metaArqger.semanal-envioSemana))}</div></div>
+    <div class="card acc-blue"><h3>Semana</h3><div class="big">${fmt(envioSemana)}/${fmt(state.metaArqger.semanal)}</div>${statusStamp(pct(envioSemana,state.metaArqger.semanal))}${progressBar(pct(envioSemana,state.metaArqger.semanal))}<div class="small">falta ${fmt(Math.max(0,state.metaArqger.semanal-envioSemana))}</div></div>`:''}
     <div class="card acc-blue"><h3>Mês</h3><div class="big">${fmt(envioMes)}/${fmt(state.metaArqger.mensal)}</div>${statusStamp(pct(envioMes,state.metaArqger.mensal))}${progressBar(pct(envioMes,state.metaArqger.mensal))}<div class="small">falta ${fmt(Math.max(0,state.metaArqger.mensal-envioMes))}</div></div>
   </div>
 
-  <div class="section-title"><h2>Digitalização por operador — mês atual</h2></div>
+  <div class="section-title"><h2>Digitalização por operador — ${monthLabel(mk)}</h2></div>
   <div class="tablewrap">
   <table>
-    <thead><tr><th>Operador</th><th>Escâner</th><th class="num">Hoje</th><th class="num">Meta hoje</th><th class="num">Mês</th><th class="num">Meta mês</th><th class="num">%</th><th>Status</th></tr></thead>
+    <thead><tr><th>Operador</th><th>Escâner</th>${isCurrentMonth?'<th class="num">Hoje</th><th class="num">Meta hoje</th>':''}<th class="num">Mês</th><th class="num">Meta mês</th><th class="num">%</th><th>Status</th></tr></thead>
     <tbody>
     ${opRows.length? opRows.map(r=>`
       <tr>
         <td>${r.op.nome}</td>
         <td><span class="scanner-chip ${r.op.scanner}">${SCANNER_LABEL[r.op.scanner]||'-'}</span></td>
-        <td class="num">${fmt(r.hoje)}</td>
-        <td class="num">${fmt(r.metaHoje)}</td>
+        ${isCurrentMonth?`<td class="num">${fmt(r.hoje)}</td><td class="num">${fmt(r.metaHoje)}</td>`:''}
         <td class="num">${fmt(r.mesArq)}</td>
         <td class="num">${fmt(r.mesMeta)}</td>
         <td class="num">${r.mesMeta? Math.round(r.p)+'%':'-'}</td>
         <td>${statusStamp(r.p)}</td>
-      </tr>`).join('') : '<tr><td colspan="8" class="empty">Nenhum operador de digitalização cadastrado ainda.</td></tr>'}
+      </tr>`).join('') : `<tr><td colspan="${isCurrentMonth?8:6}" class="empty">Nenhum lançamento de digitalização em ${monthLabel(mk)}.</td></tr>`}
     </tbody>
   </table>
   </div>
-  <div class="footnote">Status: baixa &lt; ${state.thresholds.baixa}% · média &lt; ${state.thresholds.media}% · boa &lt; ${state.thresholds.boa}% · excelente ≥ ${state.thresholds.boa}%. Ajuste em Metas.</div>
+  <div class="footnote">Status: baixa &lt; ${state.thresholds.baixa}% · média &lt; ${state.thresholds.media}% · boa &lt; ${state.thresholds.boa}% · excelente ≥ ${state.thresholds.boa}%. Ajuste em Metas. Use "Imprimir mês" ou "Exportar CSV" na barra acima para guardar este período.</div>
   `;
 }
 
@@ -450,7 +587,6 @@ function renderContrato(){
     const inicio = new Date(c.dataInicio+"T00:00:00");
     const fim = new Date(inicio); fim.setFullYear(fim.getFullYear()+Number(c.duracaoAnos||4));
     const hojeDt = new Date(todayStr+"T00:00:00");
-    const diasUteisTotais = diasUteisEntre(c.dataInicio, fim.toISOString().slice(0,10));
     const diasUteisRestantes = Math.max(0, diasUteisEntre(todayStr>c.dataInicio?todayStr:c.dataInicio, fim.toISOString().slice(0,10)));
     const restante = Math.max(0, imagensMeta - t.arquivos);
     const ritmoNecessario = diasUteisRestantes>0 ? Math.ceil(restante/diasUteisRestantes) : 0;
@@ -487,16 +623,6 @@ function renderContrato(){
 }
 
 // ---------- DASHBOARD GERAL ----------
-function shiftMonth(mk, n){
-  const [y,m] = mk.split('-').map(Number);
-  const d = new Date(y, m-1+n, 1);
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-}
-function monthsBetween(mkStart, mkEnd){
-  const [y1,m1] = mkStart.split('-').map(Number);
-  const [y2,m2] = mkEnd.split('-').map(Number);
-  return (y2-y1)*12 + (m2-m1);
-}
 async function contratoMesesProducao(){
   const c = state.contratoTJRJ;
   const inicioMk = c.dataInicio ? c.dataInicio.slice(0,7) : refMonth;
@@ -510,11 +636,6 @@ async function contratoMesesProducao(){
     out.push({mk, total: arr.reduce((s,p)=>s+Number(p.arquivos||0),0)});
   }
   return out;
-}
-function monthLabel(mk){
-  const [y,m] = mk.split('-');
-  const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  return nomes[Number(m)-1]+'/'+y.slice(2);
 }
 async function renderDashboardGeral(){
   const mk = refMonth;
@@ -576,7 +697,7 @@ async function renderDashboardGeral(){
       </div>`).join('')}
   </div>
 
-  <div class="section-title"><h2>Ranking de operadores — mês atual</h2></div>
+  <div class="section-title"><h2>Ranking de operadores — ${monthLabel(mk)}</h2></div>
   <div class="tablewrap">
   <table>
     <thead><tr><th>#</th><th>Operador</th><th>Escâner</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
@@ -589,7 +710,7 @@ async function renderDashboardGeral(){
         <td class="num">${r.meta?Math.round(r.p)+'%':'-'}</td>
         <td>${statusStamp(r.p)}</td>
         <td style="min-width:120px">${progressBar(r.p)}</td>
-      </tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum operador de digitalização cadastrado ainda.</td></tr>'}
+      </tr>`).join(''):`<tr><td colspan="6" class="empty">Nenhum lançamento de digitalização em ${monthLabel(mk)}.</td></tr>`}
     </tbody>
   </table>
   </div>`;
@@ -600,8 +721,9 @@ async function renderDigitalizacao(){
   const mk = refMonth;
   const prod = await getMonthArr('producao', mk);
   const digitalizadores = state.operadores.filter(o=>o.funcao==='Digitalizador' && o.ativo);
-  const opts = digitalizadores.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
-  const scannerOpts = SCANNERS.map(s=>`<option value="${s}">${SCANNER_LABEL[s]}</option>`).join('');
+  const def = lastDefaults.producao;
+  const opts = digitalizadores.map(o=>`<option value="${o.id}" ${o.id===def.operadorId?'selected':''}>${o.nome}</option>`).join('');
+  const scannerOpts = SCANNERS.map(s=>`<option value="${s}" ${s===def.scanner?'selected':''}>${SCANNER_LABEL[s]}</option>`).join('');
 
   const rows = prod.slice().sort((a,b)=>b.data.localeCompare(a.data)).map(p=>{
     const op = state.operadores.find(o=>o.id===p.operadorId);
@@ -610,10 +732,11 @@ async function renderDigitalizacao(){
   });
 
   return `
-  <div class="section-title"><h2>Lançar produção diária</h2></div>
+  <div class="section-title"><h2>Lançar produção diária — ${monthLabel(mk)}</h2></div>
+  <div class="footnote" style="margin:-4px 0 10px">Operador, data e escâner ficam preenchidos com o último lançamento — só troque o que mudou.</div>
   <form class="entryform" id="form-prod">
     <div><label>Operador</label><select name="operadorId" required>${digitalizadores.length?opts:'<option value="">Cadastre um operador</option>'}</select></div>
-    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
+    <div><label>Data</label><input type="date" name="data" value="${def.data||todayStr}" required></div>
     <div><label>Escâner usado</label><select name="scanner">${scannerOpts}</select></div>
     <div><label>Arquivos digitalizados</label><input type="number" name="arquivos" min="0" required></div>
     <div><label>Caixas</label><input type="number" name="caixas" min="0"></div>
@@ -624,7 +747,7 @@ async function renderDigitalizacao(){
     <div><button class="btn" type="submit">Lançar</button></div>
   </form>
 
-  <div class="section-title"><h2>Lançamentos do mês</h2><span class="muted">${rows.length} registro(s)</span></div>
+  <div class="section-title"><h2>Lançamentos de ${monthLabel(mk)}</h2><span class="muted">${rows.length} registro(s)</span></div>
   <div class="tablewrap">
   <table>
     <thead><tr><th>Data</th><th>Operador</th><th>Escâner</th><th class="num">Arquivos</th><th class="num">Caixas</th><th class="num">NID</th><th class="num">Meta</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
@@ -641,7 +764,7 @@ async function renderDigitalizacao(){
         <td class="num">${r.meta?Math.round(pct(r.p.arquivos,r.meta))+'%':'-'}</td>
         <td>${statusStamp(pct(r.p.arquivos,r.meta))}</td>
         <td><button class="btn ghost" data-del-prod="${r.p.id}">Excluir</button></td>
-      </tr>`).join(''):'<tr><td colspan="10" class="empty">Nenhum lançamento neste mês ainda.</td></tr>'}
+      </tr>`).join(''):`<tr><td colspan="10" class="empty">Nenhum lançamento em ${monthLabel(mk)} ainda.</td></tr>`}
     </tbody>
   </table>
   </div>`;
@@ -651,7 +774,9 @@ async function renderDigitalizacao(){
 async function renderArqger(){
   const mk = refMonth;
   const envio = await getMonthArr('envio', mk);
+  const aprov = await getMonthArr('aprovacoes', mk);
   const rows = envio.slice().sort((a,b)=>b.data.localeCompare(a.data));
+  const aprovRows = aprov.slice().sort((a,b)=>b.data.localeCompare(a.data));
   const t = state.arqgerTotais;
   const imagensMetaContrato = state.contratoTJRJ.imagensMeta || (state.contratoTJRJ.processosMeta*state.contratoTJRJ.folhasMedia);
   const faltamEnviar = Math.max(0, imagensMetaContrato - t.enviados);
@@ -659,8 +784,13 @@ async function renderArqger(){
   const pEnviado = pct(t.enviados, imagensMetaContrato);
   const pPago = pct(t.pagos, imagensMetaContrato);
   const consertoPct = t.enviados? Math.round((t.consertos/t.enviados)*100):0;
-  const enviadoHoje = rows.filter(r=>r.data===todayStr).reduce((s,r)=>s+Number(r.arquivos||0),0);
+  const enviadoHoje = envio.filter(r=>r.data===todayStr).reduce((s,r)=>s+Number(r.arquivos||0),0);
   const enviadoMes = rows.reduce((s,r)=>s+Number(r.arquivos||0),0);
+  const aprovadoMes = aprovRows.reduce((s,r)=>s+Number(r.aprovados||0),0);
+  const consertoMes = aprovRows.reduce((s,r)=>s+Number(r.consertos||0),0);
+
+  const defEnvio = lastDefaults.envio;
+  const defAprov = lastDefaults.aprovacoes;
 
   const nfDoMes = state.nfFechamentos.find(f=>f.mes===mk);
   const nfOrdenados = state.nfFechamentos.slice().sort((a,b)=>b.mes.localeCompare(a.mes));
@@ -675,27 +805,23 @@ async function renderArqger(){
   </div>
   <div class="grid cards">
     <div class="card acc-teal"><h3>Enviado hoje</h3><div class="big">${fmt(enviadoHoje)}</div><div class="small">meta dia: ${fmt(state.metaArqger.diaria)}</div></div>
-    <div class="card acc-teal"><h3>Enviado no mês</h3><div class="big">${fmt(enviadoMes)}</div><div class="small">meta mês: ${fmt(state.metaArqger.mensal)}</div></div>
+    <div class="card acc-teal"><h3>Enviado em ${monthLabel(mk)}</h3><div class="big">${fmt(enviadoMes)}</div><div class="small">meta mês: ${fmt(state.metaArqger.mensal)}</div></div>
     <div class="card acc-coral"><h3>NIDs / processos enviados</h3><div class="big">${fmt(t.nids)}</div><div class="small">cada NID corresponde a 1 processo</div></div>
     <div class="card acc-red"><h3>Em conserto (acumulado)</h3><div class="big">${fmt(t.consertos)}</div><div class="small">${consertoPct}% do enviado</div></div>
   </div>
 
-  <div class="section-title"><h2>Lançar movimentação do dia</h2></div>
+  <div class="section-title"><h2>1 · Lançar envio diário ao ArqGer</h2></div>
+  <div class="footnote" style="margin:-4px 0 10px">Só o volume enviado — sem aprovação e sem caixas referentes, que agora são registradas à parte.</div>
   <form class="entryform" id="form-envio">
-    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
-    <div><label>Responsável (opcional)</label><input type="text" name="responsavel" placeholder="quem enviou"></div>
+    <div><label>Data</label><input type="date" name="data" value="${defEnvio.data||todayStr}" required></div>
+    <div><label>Responsável (opcional)</label><input type="text" name="responsavel" value="${defEnvio.responsavel||''}" placeholder="quem enviou"></div>
     <div><label>Arquivos enviados (imagens)</label><input type="number" name="arquivos" min="0" required></div>
     <div><label>NIDs enviados (processos)</label><input type="number" name="nids" min="0"></div>
-    <div><label>Caixas referentes</label><input type="number" name="caixas" min="0"></div>
-    <div><label>Aprovados hoje</label><input type="number" name="aprovados" min="0"></div>
-    <div><label>Em conserto hoje</label><input type="number" name="consertos" min="0"></div>
-    <div><button class="btn" type="submit">Lançar</button></div>
+    <div><button class="btn" type="submit">Lançar envio</button></div>
   </form>
-
-  <div class="section-title"><h2>Histórico do mês</h2></div>
-  <div class="tablewrap">
+  <div class="tablewrap" style="margin-bottom:20px">
   <table>
-    <thead><tr><th>Data</th><th>Responsável</th><th class="num">Arquivos</th><th class="num">NIDs</th><th class="num">Caixas</th><th class="num">Aprovados</th><th class="num">Consertos</th><th></th></tr></thead>
+    <thead><tr><th>Data</th><th>Responsável</th><th class="num">Arquivos</th><th class="num">NIDs</th><th></th></tr></thead>
     <tbody>
     ${rows.length?rows.map(r=>`
       <tr>
@@ -703,31 +829,57 @@ async function renderArqger(){
         <td>${r.responsavel||'-'}</td>
         <td class="num">${fmt(r.arquivos)}</td>
         <td class="num">${fmt(r.nids)}</td>
-        <td class="num">${fmt(r.caixas)}</td>
-        <td class="num">${fmt(r.aprovados)}</td>
-        <td class="num">${fmt(r.consertos)}</td>
         <td><button class="btn ghost" data-del-envio="${r.id}">Excluir</button></td>
-      </tr>`).join(''):'<tr><td colspan="8" class="empty">Nenhum envio lançado neste mês ainda.</td></tr>'}
+      </tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhum envio lançado em ${monthLabel(mk)} ainda.</td></tr>`}
     </tbody>
   </table>
   </div>
 
-  <div class="section-title"><h2>Pagamento e Nota Fiscal — fechamento mensal</h2></div>
+  <div class="section-title"><h2>2 · Aprovação para pagamento</h2></div>
+  <div class="footnote" style="margin:-4px 0 12px">Como a meta é enviar 20.000 imagens/dia, o ArqGer aprova os lotes aos poucos, em dias diferentes do envio. Lance aqui cada aprovação (ou conserto) separadamente, assim que ela sair — o acumulado do mês vira a base da Nota Fiscal.</div>
+  <form class="entryform" id="form-aprovacao">
+    <div><label>Data da aprovação</label><input type="date" name="data" value="${defAprov.data||todayStr}" required></div>
+    <div><label>Responsável (opcional)</label><input type="text" name="responsavel" value="${defAprov.responsavel||''}" placeholder="quem aprovou"></div>
+    <div><label>Aprovados para pagamento</label><input type="number" name="aprovados" min="0"></div>
+    <div><label>Em conserto (devolvidos)</label><input type="number" name="consertos" min="0"></div>
+    <div><button class="btn" type="submit">Lançar aprovação</button></div>
+  </form>
+  <div class="grid cards" style="margin-bottom:14px">
+    <div class="card acc-green"><h3>Aprovados em ${monthLabel(mk)}</h3><div class="big">${fmt(aprovadoMes)}</div></div>
+    <div class="card acc-red"><h3>Em conserto em ${monthLabel(mk)}</h3><div class="big">${fmt(consertoMes)}</div></div>
+  </div>
+  <div class="tablewrap" style="margin-bottom:20px">
+  <table>
+    <thead><tr><th>Data</th><th>Responsável</th><th class="num">Aprovados</th><th class="num">Consertos</th><th></th></tr></thead>
+    <tbody>
+    ${aprovRows.length?aprovRows.map(r=>`
+      <tr>
+        <td>${r.data.split('-').reverse().join('/')}</td>
+        <td>${r.responsavel||'-'}</td>
+        <td class="num">${fmt(r.aprovados)}</td>
+        <td class="num">${fmt(r.consertos)}</td>
+        <td><button class="btn ghost" data-del-aprov="${r.id}">Excluir</button></td>
+      </tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhuma aprovação lançada em ${monthLabel(mk)} ainda.</td></tr>`}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="section-title"><h2>3 · Pagamento e Nota Fiscal — fechamento mensal</h2></div>
   <div class="card acc-brass" style="margin-bottom:14px">
     <h3>Total já pago (acumulado)</h3>
     <div class="big">${fmt(t.pagos)} <span class="muted" style="font-size:14px">/ ${fmt(imagensMetaContrato)}</span></div>
     ${progressBar(pPago)}
     <div class="small">${Math.round(pPago)}% do contrato já pago · faltam pagar ${fmt(faltamPagar)} imagens</div>
   </div>
-  ${nfDoMes?`<div class="card acc-green" style="margin-bottom:14px"><h3>Faturamento de ${mk.split('-').reverse().join('/')} já fechado</h3><div class="big">${fmt(nfDoMes.imagensPagas)} imagens</div><div class="small">NF nº ${nfDoMes.numeroNF||'-'} · fechado em ${nfDoMes.dataFechamento}</div></div>`:`
+  ${nfDoMes?`<div class="card acc-green" style="margin-bottom:14px"><h3>Faturamento de ${monthLabel(mk)} já fechado</h3><div class="big">${fmt(nfDoMes.imagensPagas)} imagens</div><div class="small">NF nº ${nfDoMes.numeroNF||'-'} · fechado em ${nfDoMes.dataFechamento}</div></div>`:`
   <form class="entryform" id="form-nf">
-    <div><label>Mês de referência</label><input type="text" value="${mk.split('-').reverse().join('/')}" disabled></div>
-    <div><label>Imagens pagas no mês</label><input type="number" name="imagensPagas" min="0" required></div>
+    <div><label>Mês de referência</label><input type="text" value="${monthLabel(mk)}" disabled></div>
+    <div><label>Imagens pagas no mês</label><input type="number" name="imagensPagas" min="0" value="${aprovadoMes||''}" required></div>
     <div><label>Número da Nota Fiscal</label><input type="text" name="numeroNF" placeholder="ex: 001234"></div>
     <div><label>Data do fechamento</label><input type="date" name="dataFechamento" value="${todayStr}"></div>
     <div><button class="btn" type="submit">Fechar faturamento do mês</button></div>
   </form>
-  <div class="footnote">Feche até o dia 30 de cada mês. Ao fechar, o valor é somado ao total pago e abatido dos 20.000.000 do contrato.</div>`}
+  <div class="footnote">Campo pré-preenchido com o total já aprovado no mês — ajuste se necessário antes de fechar. Feche até o dia 30 de cada mês.</div>`}
 
   ${nfOrdenados.length?`
   <div class="section-title"><h2>Histórico de fechamentos de NF</h2></div>
@@ -735,11 +887,11 @@ async function renderArqger(){
   <table>
     <thead><tr><th>Mês</th><th class="num">Imagens pagas</th><th>Nº NF</th><th>Fechado em</th></tr></thead>
     <tbody>
-    ${nfOrdenados.map(f=>`<tr><td>${f.mes.split('-').reverse().join('/')}</td><td class="num">${fmt(f.imagensPagas)}</td><td>${f.numeroNF||'-'}</td><td>${f.dataFechamento}</td></tr>`).join('')}
+    ${nfOrdenados.map(f=>`<tr><td>${monthLabel(f.mes)}</td><td class="num">${fmt(f.imagensPagas)}</td><td>${f.numeroNF||'-'}</td><td>${f.dataFechamento}</td></tr>`).join('')}
     </tbody>
   </table>
   </div>`:''}
-  <div class="footnote">Este fluxo é o de faturamento: arquivos finalizados na Qualidade são enviados ao ArqGer, depois aprovados ou devolvidos para conserto. O recebimento é por imagem enviada/finalizada e é fechado mensalmente com Nota Fiscal. O envio ao NAS é apenas backup interno e fica em aba separada.</div>`;
+  <div class="footnote">Fluxo: 1) envio diário ao ArqGer · 2) aprovação (ou conserto) lançada separadamente, à medida que sai · 3) no fim do mês, some as aprovações e feche a Nota Fiscal. O envio ao NAS é apenas backup interno e fica em aba própria.</div>`;
 }
 
 // ---------- NAS (BACKUP) ----------
@@ -749,9 +901,9 @@ async function renderNas(){
   const rows = nas.slice().sort((a,b)=>b.data.localeCompare(a.data));
   const mesTotal = nas.reduce((s,r)=>s+Number(r.arquivos||0),0);
   return `
-  <div class="section-title"><h2>Backup de segurança (NAS interno)</h2></div>
+  <div class="section-title"><h2>Backup de segurança (NAS interno) — ${monthLabel(mk)}</h2></div>
   <div class="grid cards">
-    <div class="card acc-blue"><h3>Enviado ao NAS este mês</h3><div class="big">${fmt(mesTotal)}</div><div class="small">apenas cópia de segurança, sem meta de faturamento</div></div>
+    <div class="card acc-blue"><h3>Enviado ao NAS em ${monthLabel(mk)}</h3><div class="big">${fmt(mesTotal)}</div><div class="small">apenas cópia de segurança, sem meta de faturamento</div></div>
   </div>
 
   <div class="section-title"><h2>Lançar envio ao NAS</h2></div>
@@ -762,7 +914,7 @@ async function renderNas(){
     <div><button class="btn" type="submit">Lançar</button></div>
   </form>
 
-  <div class="section-title"><h2>Histórico do mês</h2></div>
+  <div class="section-title"><h2>Histórico de ${monthLabel(mk)}</h2></div>
   <div class="tablewrap">
   <table>
     <thead><tr><th>Data</th><th>Responsável</th><th class="num">Arquivos</th><th></th></tr></thead>
@@ -773,7 +925,7 @@ async function renderNas(){
         <td>${r.responsavel||'-'}</td>
         <td class="num">${fmt(r.arquivos)}</td>
         <td><button class="btn ghost" data-del-nas="${r.id}">Excluir</button></td>
-      </tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum envio lançado neste mês ainda.</td></tr>'}
+      </tr>`).join(''):`<tr><td colspan="4" class="empty">Nenhum envio lançado em ${monthLabel(mk)} ainda.</td></tr>`}
     </tbody>
   </table>
   </div>`;
@@ -784,19 +936,20 @@ async function renderHigienizacao(){
   const mk = refMonth;
   const hig = await getMonthArr('higienizacao', mk);
   const equipe = state.operadores.filter(o=>o.funcao==='Higienizador' && o.ativo);
-  const opts = equipe.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  const def = lastDefaults.higienizacao;
+  const opts = equipe.map(o=>`<option value="${o.id}" ${o.id===def.operadorId?'selected':''}>${o.nome}</option>`).join('');
   const rows = hig.slice().sort((a,b)=>b.data.localeCompare(a.data)).map(h=>({h, op:state.operadores.find(o=>o.id===h.operadorId)}));
 
   return `
-  <div class="section-title"><h2>Lançar higienização diária</h2></div>
+  <div class="section-title"><h2>Lançar higienização diária — ${monthLabel(mk)}</h2></div>
   <form class="entryform" id="form-hig">
     <div><label>Operador</label><select name="operadorId" required>${equipe.length?opts:'<option value="">Cadastre um higienizador</option>'}</select></div>
-    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
+    <div><label>Data</label><input type="date" name="data" value="${def.data||todayStr}" required></div>
     <div><label>Caixas higienizadas</label><input type="number" name="caixas" min="0" required></div>
     <div><label>Meta ajustada hoje (opcional)</label><input type="number" name="metaManual" min="0"></div>
     <div><button class="btn" type="submit">Lançar</button></div>
   </form>
-  <div class="section-title"><h2>Lançamentos do mês</h2></div>
+  <div class="section-title"><h2>Lançamentos de ${monthLabel(mk)}</h2></div>
   <div class="tablewrap">
   <table>
     <thead><tr><th>Data</th><th>Operador</th><th class="num">Caixas</th><th class="num">Meta</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
@@ -811,7 +964,7 @@ async function renderHigienizacao(){
         <td class="num">${Math.round(pct(r.h.caixas,meta))}%</td>
         <td>${statusStamp(pct(r.h.caixas,meta))}</td>
         <td><button class="btn ghost" data-del-hig="${r.h.id}">Excluir</button></td>
-      </tr>`;}).join(''):'<tr><td colspan="7" class="empty">Nenhum lançamento neste mês ainda.</td></tr>'}
+      </tr>`;}).join(''):`<tr><td colspan="7" class="empty">Nenhum lançamento em ${monthLabel(mk)} ainda.</td></tr>`}
     </tbody>
   </table>
   </div>`;
@@ -822,14 +975,15 @@ async function renderQualidade(){
   const mk = refMonth;
   const qual = await getMonthArr('qualidade', mk);
   const equipe = state.operadores.filter(o=>o.funcao==='Controle de Qualidade' && o.ativo);
-  const opts = equipe.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  const def = lastDefaults.qualidade;
+  const opts = equipe.map(o=>`<option value="${o.id}" ${o.id===def.operadorId?'selected':''}>${o.nome}</option>`).join('');
   const rows = qual.slice().sort((a,b)=>b.data.localeCompare(a.data)).map(q=>({q, op:state.operadores.find(o=>o.id===q.operadorId)}));
 
   return `
-  <div class="section-title"><h2>Lançar controle de qualidade diário</h2></div>
+  <div class="section-title"><h2>Lançar controle de qualidade diário — ${monthLabel(mk)}</h2></div>
   <form class="entryform" id="form-qual">
     <div><label>Operador</label><select name="operadorId" required>${equipe.length?opts:'<option value="">Cadastre um operador de qualidade</option>'}</select></div>
-    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
+    <div><label>Data</label><input type="date" name="data" value="${def.data||todayStr}" required></div>
     <div><label>Arquivos conferidos (QC)</label><input type="number" name="arquivosQC" min="0" required></div>
     <div><label>Finalizados p/ envio</label><input type="number" name="finalizados" min="0" required></div>
     <div><label>Com certificado digital</label><input type="number" name="certificado" min="0"></div>
@@ -838,7 +992,7 @@ async function renderQualidade(){
     <div><label>Meta ajustada hoje (opcional)</label><input type="number" name="metaManual" min="0"></div>
     <div><button class="btn" type="submit">Lançar</button></div>
   </form>
-  <div class="section-title"><h2>Lançamentos do mês</h2></div>
+  <div class="section-title"><h2>Lançamentos de ${monthLabel(mk)}</h2></div>
   <div class="tablewrap">
   <table>
     <thead><tr><th>Data</th><th>Operador</th><th>Servidor</th><th class="num">QC</th><th class="num">Finalizados</th><th class="num">Certificado</th><th class="num">OCR</th><th class="num">PDF/A</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
@@ -857,7 +1011,7 @@ async function renderQualidade(){
         <td class="num">${Math.round(pct(r.q.finalizados,meta))}%</td>
         <td>${statusStamp(pct(r.q.finalizados,meta))}</td>
         <td><button class="btn ghost" data-del-qual="${r.q.id}">Excluir</button></td>
-      </tr>`;}).join(''):'<tr><td colspan="11" class="empty">Nenhum lançamento neste mês ainda.</td></tr>'}
+      </tr>`;}).join(''):`<tr><td colspan="11" class="empty">Nenhum lançamento em ${monthLabel(mk)} ainda.</td></tr>`}
     </tbody>
   </table>
   </div>`;
@@ -915,6 +1069,83 @@ function renderOperadores(){
   `;
 }
 
+// ---------- HISTÓRICO POR OPERADOR ----------
+async function renderHistorico(){
+  const selectedOpId = window.__historicoOpId || '';
+  const rangeMeses = window.__historicoRange || 12;
+  const opts = state.operadores.map(o=>`<option value="${o.id}" ${o.id===selectedOpId?'selected':''}>${o.nome} (${o.funcao})</option>`).join('');
+  let bodyHtml = '<div class="empty">Selecione um operador para ver o histórico de produção mês a mês.</div>';
+  window.__historicoData = null;
+  const op = state.operadores.find(o=>o.id===selectedOpId);
+  if(op){
+    const rows = [];
+    for(let i=rangeMeses-1;i>=0;i--){
+      const mk = shiftMonth(refMonth, -i);
+      let total=0, meta=0;
+      if(op.funcao==='Digitalizador'){
+        const arr = await getMonthArr('producao', mk);
+        const regs = arr.filter(p=>p.operadorId===op.id);
+        total = regs.reduce((s,p)=>s+Number(p.arquivos||0),0);
+        meta = regs.reduce((s,p)=>s+metaDoDia(op,p),0);
+      } else if(op.funcao==='Higienizador'){
+        const arr = await getMonthArr('higienizacao', mk);
+        const regs = arr.filter(h=>h.operadorId===op.id);
+        total = regs.reduce((s,h)=>s+Number(h.caixas||0),0);
+        meta = regs.reduce((s,h)=>s+(h.metaManual?Number(h.metaManual):state.metaHigienizacao),0);
+      } else {
+        const arr = await getMonthArr('qualidade', mk);
+        const regs = arr.filter(q=>q.operadorId===op.id);
+        total = regs.reduce((s,q)=>s+Number(q.finalizados||0),0);
+        meta = regs.reduce((s,q)=>s+(q.metaManual?Number(q.metaManual):state.metaQualidade.finalizados),0);
+      }
+      rows.push({mk, total, meta, p: pct(total, meta||1)});
+    }
+    window.__historicoData = {
+      opNome: op.nome,
+      headers: ['Mês','Total','Meta','%'],
+      rows: rows.map(r=>[monthLabel(r.mk), r.total, r.meta, r.meta?Math.round(r.p)+'%':''])
+    };
+    const maxTotal = Math.max(1, ...rows.map(r=>r.total), ...rows.map(r=>r.meta));
+    bodyHtml = `
+    <div class="section-title"><h2>${op.nome} — ${op.funcao}</h2></div>
+    <div class="card" style="padding:20px 16px 10px;overflow-x:auto;margin-bottom:16px;">
+      <div style="display:flex;align-items:flex-end;gap:10px;height:150px;min-width:${rows.length*54}px;">
+        ${rows.map(r=>`
+        <div style="flex:none;width:42px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+          <div class="mono" style="font-size:10px;color:var(--ink-soft);margin-bottom:4px;">${fmt(r.total)}</div>
+          <div style="width:100%;background:${barColor(statusInfo(r.p).cls)};border-radius:6px 6px 0 0;height:${Math.max(4,(r.total/maxTotal)*100)}%;"></div>
+          <div style="font-size:10px;color:var(--ink-faint);margin-top:6px;">${monthLabel(r.mk)}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>Mês</th><th class="num">Total</th><th class="num">Meta</th><th class="num">%</th><th>Status</th></tr></thead>
+      <tbody>
+      ${rows.map(r=>`<tr><td>${monthLabel(r.mk)}</td><td class="num">${fmt(r.total)}</td><td class="num">${fmt(r.meta)}</td><td class="num">${r.meta?Math.round(r.p)+'%':'-'}</td><td>${statusStamp(r.p)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+  }
+  return `
+  <div class="section-title"><h2>Histórico de produção por operador</h2></div>
+  <div class="footnote" style="margin:0 0 10px">Veja quanto um operador produziu mês a mês — mês passado, retrasado, e assim por diante, até 5 anos atrás.</div>
+  <form class="entryform" id="form-historico" style="margin-bottom:20px;">
+    <div><label>Operador</label><select name="operadorId">${state.operadores.length?'<option value="">Selecione…</option>'+opts:'<option value="">Cadastre um operador</option>'}</select></div>
+    <div><label>Período</label><select name="range">
+      <option value="6" ${rangeMeses===6?'selected':''}>Últimos 6 meses</option>
+      <option value="12" ${rangeMeses===12?'selected':''}>Últimos 12 meses</option>
+      <option value="24" ${rangeMeses===24?'selected':''}>Últimos 2 anos</option>
+      <option value="36" ${rangeMeses===36?'selected':''}>Últimos 3 anos</option>
+      <option value="48" ${rangeMeses===48?'selected':''}>Últimos 4 anos</option>
+      <option value="60" ${rangeMeses===60?'selected':''}>Últimos 5 anos</option>
+    </select></div>
+    <div><button class="btn" type="submit">Ver histórico</button></div>
+  </form>
+  ${bodyHtml}
+  `;
+}
+
 // ---------- METAS ----------
 function renderMetas(){
   return `
@@ -967,6 +1198,7 @@ async function renderFechamento(){
   const hig = await getMonthArr('higienizacao', mk);
   const qual = await getMonthArr('qualidade', mk);
   const envio = await getMonthArr('envio', mk);
+  const aprov = await getMonthArr('aprovacoes', mk);
   const nas = await getMonthArr('nas', mk);
   const jaFechado = state.fechamentos.find(f=>f.mes===mk);
 
@@ -991,15 +1223,16 @@ async function renderFechamento(){
   }).filter(r=>r.meta>0 || r.total>0);
 
   const envioMes = envio.reduce((s,e)=>s+Number(e.arquivos||0),0);
-  const aprovadosMes = envio.reduce((s,e)=>s+Number(e.aprovados||0),0);
+  const aprovadosMes = aprov.reduce((s,a)=>s+Number(a.aprovados||0),0);
   const nfDoMesFech = state.nfFechamentos.find(f=>f.mes===mk);
   const pagosMes = nfDoMesFech ? Number(nfDoMesFech.imagensPagas||0) : 0;
   const nasMes = nas.reduce((s,e)=>s+Number(e.arquivos||0),0);
 
   return `
-  <div class="section-title"><h2>Fechamento mensal — ${mk.split('-').reverse().join('/')}</h2>
+  <div class="section-title"><h2>Relatório mensal — ${monthLabel(mk)}</h2>
     ${jaFechado?`<span class="stamp green">Mês fechado</span>`:`<button class="btn" id="btn-fechar-mes">Fechar mês</button>`}
   </div>
+  <div class="footnote" style="margin:-4px 0 12px">Clique em "🖨️ Imprimir mês" na barra acima, com esta aba aberta, para gerar o relatório completo do período: produção por operador, envio/aprovação ArqGer e situação da Nota Fiscal.</div>
   <div class="tablewrap">
   <table>
     <thead><tr><th>Operador</th><th>Função</th><th class="num">Total</th><th class="num">Meta</th><th class="num">%</th><th>Status</th></tr></thead>
@@ -1020,13 +1253,13 @@ async function renderFechamento(){
   <div class="grid cards">
     <div class="card acc-blue"><h3>Enviado ArqGer no mês</h3><div class="big">${fmt(envioMes)}</div></div>
     <div class="card acc-green"><h3>Aprovados no mês</h3><div class="big">${fmt(aprovadosMes)}</div></div>
-    <div class="card acc-brass"><h3>Pagos no mês (NF)</h3><div class="big">${fmt(pagosMes)}</div>${!nfDoMesFech?`<div class="small">faturamento ainda não fechado</div>`:''}</div>
+    <div class="card acc-brass"><h3>Pagos no mês (NF)</h3><div class="big">${fmt(pagosMes)}</div>${nfDoMesFech?`<div class="small">NF nº ${nfDoMesFech.numeroNF||'-'} · fechado em ${nfDoMesFech.dataFechamento}</div>`:`<div class="small">faturamento ainda não fechado</div>`}</div>
     <div class="card acc-teal"><h3>Backup NAS no mês</h3><div class="big">${fmt(nasMes)}</div></div>
   </div>
   ${state.fechamentos.length?`
   <div class="section-title"><h2>Meses fechados</h2></div>
   <div class="tablewrap"><table><thead><tr><th>Mês</th><th>Data do fechamento</th></tr></thead><tbody>
-  ${state.fechamentos.slice().sort((a,b)=>b.mes.localeCompare(a.mes)).map(f=>`<tr><td>${f.mes.split('-').reverse().join('/')}</td><td>${f.dataFechamento}</td></tr>`).join('')}
+  ${state.fechamentos.slice().sort((a,b)=>b.mes.localeCompare(a.mes)).map(f=>`<tr><td>${monthLabel(f.mes)}</td><td>${f.dataFechamento}</td></tr>`).join('')}
   </tbody></table></div>`:''}
   `;
 }
@@ -1056,6 +1289,7 @@ function bindHandlers(){
     state.contratoTotais.caixas += entry.caixas;
     state.contratoTotais.nid += entry.nid;
     await persistContrato();
+    lastDefaults.producao = {operadorId: entry.operadorId, data: entry.data, scanner: entry.scanner};
     toast('Produção lançada.');
     render();
   };
@@ -1065,18 +1299,34 @@ function bindHandlers(){
     e.preventDefault();
     const fd = new FormData(formEnvio);
     const entry = {id:uid(), data:fd.get('data'), responsavel:fd.get('responsavel')||'',
-      arquivos:Number(fd.get('arquivos')||0), nids:Number(fd.get('nids')||0), caixas:Number(fd.get('caixas')||0),
-      aprovados:Number(fd.get('aprovados')||0), consertos:Number(fd.get('consertos')||0)};
+      arquivos:Number(fd.get('arquivos')||0), nids:Number(fd.get('nids')||0)};
     const mk = monthKey(entry.data);
     const arr = await getMonthArr('envio', mk);
     arr.push(entry);
     await saveMonthArr('envio', mk);
     state.arqgerTotais.enviados += entry.arquivos;
     state.arqgerTotais.nids += entry.nids;
+    await persistArqgerTotais();
+    lastDefaults.envio = {data: entry.data, responsavel: entry.responsavel};
+    toast('Envio lançado.');
+    render();
+  };
+
+  const formAprov = document.getElementById('form-aprovacao');
+  if(formAprov) formAprov.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formAprov);
+    const entry = {id:uid(), data:fd.get('data'), responsavel:fd.get('responsavel')||'',
+      aprovados:Number(fd.get('aprovados')||0), consertos:Number(fd.get('consertos')||0)};
+    const mk = monthKey(entry.data);
+    const arr = await getMonthArr('aprovacoes', mk);
+    arr.push(entry);
+    await saveMonthArr('aprovacoes', mk);
     state.arqgerTotais.aprovados += entry.aprovados;
     state.arqgerTotais.consertos += entry.consertos;
     await persistArqgerTotais();
-    toast('Envio lançado.');
+    lastDefaults.aprovacoes = {data: entry.data, responsavel: entry.responsavel};
+    toast('Aprovação lançada.');
     render();
   };
 
@@ -1121,6 +1371,7 @@ function bindHandlers(){
     const arr = await getMonthArr('higienizacao', mk);
     arr.push(entry);
     await saveMonthArr('higienizacao', mk);
+    lastDefaults.higienizacao = {operadorId: entry.operadorId, data: entry.data};
     toast('Higienização lançada.');
     render();
   };
@@ -1138,7 +1389,17 @@ function bindHandlers(){
     const arr = await getMonthArr('qualidade', mk);
     arr.push(entry);
     await saveMonthArr('qualidade', mk);
+    lastDefaults.qualidade = {operadorId: entry.operadorId, data: entry.data};
     toast('Controle de qualidade lançado.');
+    render();
+  };
+
+  const formHistorico = document.getElementById('form-historico');
+  if(formHistorico) formHistorico.onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formHistorico);
+    window.__historicoOpId = fd.get('operadorId')||'';
+    window.__historicoRange = Number(fd.get('range')||12);
     render();
   };
 
@@ -1227,6 +1488,18 @@ function bindHandlers(){
       if(removed){
         state.arqgerTotais.enviados = Math.max(0, state.arqgerTotais.enviados - Number(removed.arquivos||0));
         state.arqgerTotais.nids = Math.max(0, state.arqgerTotais.nids - Number(removed.nids||0));
+        await persistArqgerTotais();
+      }
+      render();
+    };
+  });
+  main.querySelectorAll('[data-del-aprov]').forEach(b=>{
+    b.onclick = async ()=>{
+      const mk = refMonth; const arr = await getMonthArr('aprovacoes', mk);
+      const removed = arr.find(p=>p.id===b.dataset.delAprov);
+      monthCache.aprovacoes[mk] = arr.filter(p=>p.id!==b.dataset.delAprov);
+      await saveMonthArr('aprovacoes', mk);
+      if(removed){
         state.arqgerTotais.aprovados = Math.max(0, state.arqgerTotais.aprovados - Number(removed.aprovados||0));
         state.arqgerTotais.consertos = Math.max(0, state.arqgerTotais.consertos - Number(removed.consertos||0));
         await persistArqgerTotais();
@@ -1307,7 +1580,7 @@ function bindHandlers(){
 
   const btnFechar = document.getElementById('btn-fechar-mes');
   if(btnFechar) btnFechar.onclick = async ()=>{
-    if(!confirm('Fechar o mês atual? Isso marca o período como encerrado para conferência.')) return;
+    if(!confirm('Fechar o mês de '+monthLabel(refMonth)+'? Isso marca o período como encerrado para conferência.')) return;
     state.fechamentos.push({mes:refMonth, dataFechamento: todayStr.split('-').reverse().join('/')});
     await saveJSON('sp-fechamentos', state.fechamentos);
     toast('Mês fechado.'); render();
