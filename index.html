@@ -122,7 +122,7 @@ select[multiple]{height:auto;}
 <div id="app">
   <header class="top">
     <div class="brandline">
-      <img class="logo" id="logo-img" alt="Tempo Real">
+      <img class="logo" id="logo-img" src="logo.png" alt="Tempo Real">
       <div>
         <h1>Sistema de Produção</h1>
         <span class="sub mono" id="hoje-label"></span>
@@ -1588,8 +1588,6 @@ function bindHandlers(){
 }
 
 (async function init(){
-  const logoImg = document.getElementById('logo-img');
-  if(logoImg) logoImg.src = 'data:image/png;base64,'+LOGO_B64;
   await loadAll();
   setCloudStatus('ok');
   render();
