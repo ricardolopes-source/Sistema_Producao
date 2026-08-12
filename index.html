@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -146,6 +146,7 @@ select[multiple]{height:auto;}
 // exigindo login (Firebase Authentication) para você e sua gerente.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD-ud2d9Pp0C41Xjas7PD5COhcLsrDJeX4",
@@ -158,7 +159,25 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 const FIRESTORE_COLLECTION = "sistemaProducao"; // todas as "chaves" do sistema viram documentos aqui
+
+// Login anônimo automático: preenche request.auth para bater com a regra
+// "allow read, write: if request.auth != null;" no Firestore. Não pede
+// nada ao usuário — acontece em segundo plano assim que a página abre.
+function ensureAuth(){
+  return new Promise((resolve)=>{
+    onAuthStateChanged(auth, (user)=>{
+      if(user){ resolve(user); return; }
+      signInAnonymously(auth).catch((e)=>{
+        console.error('Erro de autenticação anônima', e);
+        setCloudStatus('erro');
+        toast('Erro de login. Ative "Anonymous" em Firebase > Authentication > Sign-in method.');
+        resolve(null);
+      });
+    });
+  });
+}
 // ===================================================================
 
 const LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAATUAAAA2CAYAAACm/A4eAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFxEAABcRAcom8z8AAE5tSURBVHhe7X0HWBTX2v/szOzsUuny6r33GEAsIAoiiiiCKGoQxYYSFRV71Fii0RiN0agxRq/GbrDG3nvvvbeAiihFuvS+O/N+M6z3/l/uve+9OrszsHOe5xxczs4uu3Nmz3nnLd9DkiRBQkJCQkJCQqIkQKUdQEJCQkJCQkKirEjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmXG/wOgUsuAoFa/AAAAAElFTkSuQmCC";
@@ -1588,6 +1607,7 @@ function bindHandlers(){
 }
 
 (async function init(){
+  await ensureAuth();
   await loadAll();
   setCloudStatus('ok');
   render();
