@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -138,12 +138,7 @@ select[multiple]{height:auto;}
 </div>
 <div class="toast" id="toast"></div>
 <script type="module">
-// ===================== FIREBASE (FIRESTORE) =====================
-// ATENÇÃO: o Firestore está em "modo de teste", ou seja, aberto para leitura/escrita
-// por qualquer pessoa que tenha essas credenciais (elas não são secretas, mas o MODO
-// TESTE sim é público). Antes de usar com dados reais de operadores/contrato, configure
-// regras de segurança no console do Firebase (Firestore Database > Regras), idealmente
-// exigindo login (Firebase Authentication) para você e sua gerente.
+// ===================== FIREBASE (FIRESTORE + AUTH) =====================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -160,11 +155,10 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
-const FIRESTORE_COLLECTION = "sistemaProducao"; // todas as "chaves" do sistema viram documentos aqui
+const FIRESTORE_COLLECTION = "sistemaProducao";
 
 // Login anônimo automático: preenche request.auth para bater com a regra
-// "allow read, write: if request.auth != null;" no Firestore. Não pede
-// nada ao usuário — acontece em segundo plano assim que a página abre.
+// "allow read, write: if request.auth != null;" no Firestore.
 function ensureAuth(){
   return new Promise((resolve)=>{
     onAuthStateChanged(auth, (user)=>{
@@ -180,7 +174,6 @@ function ensureAuth(){
 }
 // ===================================================================
 
-const LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAATUAAAA2CAYAAACm/A4eAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFxEAABcRAcom8z8AAE5tSURBVHhe7X0HWBTX2v/szOzsUuny6r33GEAsIAoiiiiCKGoQxYYSFRV71Fii0RiN0agxRq/GbrDG3nvvvbeAiihFuvS+O/N+M6z3/l/uve+9OrszsHOe5xxczs4uu3Nmz3nnLd9DkiRBQkJCQkJCQqIkQKUdQEJCQkJCQkKirEjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmWGJGxISEhISEhIlBmSsCEhISEhISFRZkjChoSEhISEhESZIQkbEhISEhISEmXG/wOgUsuAoFa/AAAAAElFTkSuQmCC";
 let state = {
   operadores: [],
   metasScanner: {
@@ -190,16 +183,17 @@ let state = {
     "ScannerTeck": {diaria:3500, hora:438}
   },
   metaHigienizacao: 40,
-  metaQualidade: {qc:2000, finalizados:2000},
+  metaQualidade: {qc:10000, finalizados:2000},
   metaArqger: {diaria:5000, semanal:30000, mensal:120000},
   thresholds: {baixa:70, media:90, boa:110},
   fechamentos: [],
   contratoTJRJ: {nome:"TJRJ · Arquivo Regional de Itaipava", processosMeta:250000, folhasMedia:80, imagensMeta:20000000, dataInicio:"2026-07-01", duracaoAnos:4},
   contratoTotais: {arquivos:0, caixas:0, nid:0},
   arqgerTotais: {enviados:0, nids:0, aprovados:0, consertos:0, pagos:0},
-  nfFechamentos: []
+  nfFechamentos: [],
+  tarefas: []
 };
-let monthCache = {producao:{}, envio:{}, nas:{}, higienizacao:{}, qualidade:{}, aprovacoes:{}};
+let monthCache = {producao:{}, envio:{}, higienizacao:{}, qualidade:{}, aprovacoes:{}, diario:{}, ocorrencias:{}};
 let currentTab = 'painel';
 let todayStr = new Date().toISOString().slice(0,10);
 let refMonth = todayStr.slice(0,7);
@@ -210,14 +204,15 @@ const SERVIDORES = ["Servidor1","Servidor2"];
 const SERVIDOR_LABEL = {Servidor1:"Servidor 1", Servidor2:"Servidor 2"};
 const FUNCOES = ["Digitalizador","Higienizador","Controle de Qualidade"];
 
-// Lembra o último operador/data/escâner usado em cada formulário, para não precisar
-// reselecionar tudo de novo a cada lançamento (só reseta o que é específico do dia).
+// Lembra o último operador/data/escâner/coordenador usado em cada formulário.
 let lastDefaults = {
   producao: {operadorId:'', data: todayStr, scanner: SCANNERS[0]},
   higienizacao: {operadorId:'', data: todayStr},
   qualidade: {operadorId:'', data: todayStr},
   envio: {data: todayStr, responsavel:''},
-  aprovacoes: {data: todayStr, responsavel:''}
+  aprovacoes: {data: todayStr, responsavel:''},
+  diario: {data: todayStr, coordenador:''},
+  ocorrencia: {operadorId:'', tipo:'Falta', data: todayStr, coordenador:''}
 };
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -305,12 +300,14 @@ async function loadAll(){
   const arqgerT = await loadJSON('sp-arqger-totais', null);
   if(arqgerT) state.arqgerTotais = Object.assign({enviados:0,nids:0,aprovados:0,consertos:0,pagos:0}, arqgerT);
   state.nfFechamentos = await loadJSON('sp-nf-fechamentos', []);
+  state.tarefas = await loadJSON('sp-tarefas', []);
   await getMonthArr('producao', refMonth);
   await getMonthArr('envio', refMonth);
-  await getMonthArr('nas', refMonth);
   await getMonthArr('higienizacao', refMonth);
   await getMonthArr('qualidade', refMonth);
   await getMonthArr('aprovacoes', refMonth);
+  await getMonthArr('diario', refMonth);
+  await getMonthArr('ocorrencias', refMonth);
 }
 async function persistMetas(){
   await saveJSON('sp-metas', {
@@ -327,6 +324,7 @@ async function persistContrato(){
 }
 async function persistArqgerTotais(){ await saveJSON('sp-arqger-totais', state.arqgerTotais); }
 async function persistNF(){ await saveJSON('sp-nf-fechamentos', state.nfFechamentos); }
+async function persistTarefas(){ await saveJSON('sp-tarefas', state.tarefas); }
 
 function statusInfo(percent){
   const t = state.thresholds;
@@ -360,10 +358,15 @@ function metaDoDia(op, entry){
     return state.metaHigienizacao;
   }
   if(op.funcao==='Controle de Qualidade'){
+    // esta é a meta de "Finalizados para envio" — a que a "meta ajustada" sobrescreve
     if(entry && entry.metaManual) return Number(entry.metaManual);
     return state.metaQualidade.finalizados;
   }
   return 0;
+}
+function metaQCDoDia(){
+  // meta individual de "Arquivos conferidos (CQ)" — não soma entre operadores
+  return state.metaQualidade.qc;
 }
 
 async function ensureMonth(type, mk){
@@ -408,9 +411,23 @@ async function exportCurrentTab(){
     filename = 'higienizacao_'+mk+'.csv';
   } else if(currentTab==='qualidade'){
     const arr = await getMonthArr('qualidade', mk);
-    headers=['Data','Operador','QC','Finalizados','Certificado','OCR','PDF/A'];
-    rows = arr.map(q=>{ const op=state.operadores.find(o=>o.id===q.operadorId); return [q.data, op?op.nome:'', q.arquivosQC, q.finalizados, q.certificado, q.ocerizado, q.pdfA]; });
+    headers=['Data','Operador','CQ','Certificado','OCR','PDF/A','Finalizados','Observação'];
+    rows = arr.map(q=>{ const op=state.operadores.find(o=>o.id===q.operadorId); return [q.data, op?op.nome:'', q.arquivosQC, q.certificado, q.ocerizado, q.pdfA, q.finalizados, q.obs||'']; });
     filename = 'qualidade_'+mk+'.csv';
+  } else if(currentTab==='diario'){
+    const diario = await getMonthArr('diario', mk);
+    const ocor = await getMonthArr('ocorrencias', mk);
+    headers=['Tipo','Data','Operador/Coordenador','Detalhe 1','Detalhe 2'];
+    rows = diario.map(d=>['Resumo do dia', d.data, d.coordenador||'', d.resumo||'', ''])
+      .concat(ocor.map(o=>{
+        const op = state.operadores.find(x=>x.id===o.operadorId);
+        return ['Ocorrência', o.data, op?op.nome:'', o.tipo+' · avisou: '+o.avisou, o.atestado];
+      }));
+    filename = 'diario_producao_'+mk+'.csv';
+  } else if(currentTab==='tarefas'){
+    headers=['Título','Responsável','Prazo','Prioridade','Status'];
+    rows = state.tarefas.map(t=>[t.titulo, t.responsavel||'', t.prazo||'', t.prioridade||'', t.status]);
+    filename = 'tarefas.csv';
   } else if(currentTab==='painel' || currentTab==='dashboard'){
     const prod = await getMonthArr('producao', mk);
     headers=['Operador','Escâner','Total mês','Meta mês','%'];
@@ -447,9 +464,10 @@ const TABS = [
   {id:'contrato', label:'Contrato TJRJ', color:'var(--brass-dark)'},
   {id:'digitalizacao', label:'Digitalização', color:'var(--teal)'},
   {id:'arqger', label:'ArqGer (faturamento)', color:'var(--blue)'},
-  {id:'nas', label:'NAS (backup)', color:'var(--ink-faint)'},
   {id:'higienizacao', label:'Higienização', color:'var(--green)'},
   {id:'qualidade', label:'Qualidade', color:'var(--purple)'},
+  {id:'diario', label:'Diário de produção', color:'var(--red)'},
+  {id:'tarefas', label:'Tarefas', color:'var(--amber)'},
   {id:'operadores', label:'Operadores', color:'var(--coral)'},
   {id:'historico', label:'Histórico operador', color:'var(--purple)'},
   {id:'metas', label:'Metas', color:'var(--ink-faint)'},
@@ -497,9 +515,10 @@ async function render(){
   else if(currentTab==='contrato') main.innerHTML = renderContrato();
   else if(currentTab==='digitalizacao') main.innerHTML = await renderDigitalizacao();
   else if(currentTab==='arqger') main.innerHTML = await renderArqger();
-  else if(currentTab==='nas') main.innerHTML = await renderNas();
   else if(currentTab==='higienizacao') main.innerHTML = await renderHigienizacao();
   else if(currentTab==='qualidade') main.innerHTML = await renderQualidade();
+  else if(currentTab==='diario') main.innerHTML = await renderDiario();
+  else if(currentTab==='tarefas') main.innerHTML = renderTarefas();
   else if(currentTab==='operadores') main.innerHTML = renderOperadores();
   else if(currentTab==='historico') main.innerHTML = await renderHistorico();
   else if(currentTab==='metas') main.innerHTML = renderMetas();
@@ -522,7 +541,6 @@ async function renderPainel(){
   const opRows = digitalizadores.map(op=>{
     const opProd = prod.filter(p=>p.operadorId===op.id);
     const hoje = isCurrentMonth ? opProd.filter(p=>p.data===todayStr).reduce((s,p)=>s+Number(p.arquivos||0),0) : 0;
-    const semana = isCurrentMonth ? opProd.filter(p=>inRange(p.data,wk.start,wk.end)) : [];
     const mesArq = opProd.reduce((s,p)=>s+Number(p.arquivos||0),0);
     const mesMeta = opProd.reduce((s,p)=>s+metaDoDia(op,p),0);
     const metaHoje = isCurrentMonth ? metaDoDia(op, opProd.find(p=>p.data===todayStr)) : 0;
@@ -600,7 +618,6 @@ function renderContrato(){
   const t = state.contratoTotais;
   const imagensMeta = c.imagensMeta || (c.processosMeta * c.folhasMedia);
   const p = pct(t.arquivos, imagensMeta);
-  const s = statusInfo(p);
   let prazoInfo = '';
   if(c.dataInicio){
     const inicio = new Date(c.dataInicio+"T00:00:00");
@@ -647,7 +664,7 @@ async function contratoMesesProducao(){
   const inicioMk = c.dataInicio ? c.dataInicio.slice(0,7) : refMonth;
   let n = monthsBetween(inicioMk, refMonth);
   if(n<0) n=0;
-  if(n>47) n=47; // limite de segurança (4 anos)
+  if(n>47) n=47;
   const out = [];
   for(let i=0;i<=n;i++){
     const mk = shiftMonth(inicioMk, i);
@@ -910,44 +927,7 @@ async function renderArqger(){
     </tbody>
   </table>
   </div>`:''}
-  <div class="footnote">Fluxo: 1) envio diário ao ArqGer · 2) aprovação (ou conserto) lançada separadamente, à medida que sai · 3) no fim do mês, some as aprovações e feche a Nota Fiscal. O envio ao NAS é apenas backup interno e fica em aba própria.</div>`;
-}
-
-// ---------- NAS (BACKUP) ----------
-async function renderNas(){
-  const mk = refMonth;
-  const nas = await getMonthArr('nas', mk);
-  const rows = nas.slice().sort((a,b)=>b.data.localeCompare(a.data));
-  const mesTotal = nas.reduce((s,r)=>s+Number(r.arquivos||0),0);
-  return `
-  <div class="section-title"><h2>Backup de segurança (NAS interno) — ${monthLabel(mk)}</h2></div>
-  <div class="grid cards">
-    <div class="card acc-blue"><h3>Enviado ao NAS em ${monthLabel(mk)}</h3><div class="big">${fmt(mesTotal)}</div><div class="small">apenas cópia de segurança, sem meta de faturamento</div></div>
-  </div>
-
-  <div class="section-title"><h2>Lançar envio ao NAS</h2></div>
-  <form class="entryform" id="form-nas">
-    <div><label>Data</label><input type="date" name="data" value="${todayStr}" required></div>
-    <div><label>Responsável (opcional)</label><input type="text" name="responsavel" placeholder="quem enviou"></div>
-    <div><label>Arquivos enviados</label><input type="number" name="arquivos" min="0" required></div>
-    <div><button class="btn" type="submit">Lançar</button></div>
-  </form>
-
-  <div class="section-title"><h2>Histórico de ${monthLabel(mk)}</h2></div>
-  <div class="tablewrap">
-  <table>
-    <thead><tr><th>Data</th><th>Responsável</th><th class="num">Arquivos</th><th></th></tr></thead>
-    <tbody>
-    ${rows.length?rows.map(r=>`
-      <tr>
-        <td>${r.data.split('-').reverse().join('/')}</td>
-        <td>${r.responsavel||'-'}</td>
-        <td class="num">${fmt(r.arquivos)}</td>
-        <td><button class="btn ghost" data-del-nas="${r.id}">Excluir</button></td>
-      </tr>`).join(''):`<tr><td colspan="4" class="empty">Nenhum envio lançado em ${monthLabel(mk)} ainda.</td></tr>`}
-    </tbody>
-  </table>
-  </div>`;
+  <div class="footnote">Fluxo: 1) envio diário ao ArqGer · 2) aprovação (ou conserto) lançada separadamente, à medida que sai · 3) no fim do mês, some as aprovações e feche a Nota Fiscal.</div>`;
 }
 
 // ---------- HIGIENIZAÇÃO ----------
@@ -1000,40 +980,196 @@ async function renderQualidade(){
 
   return `
   <div class="section-title"><h2>Lançar controle de qualidade diário — ${monthLabel(mk)}</h2></div>
+  <div class="footnote" style="margin:-4px 0 10px">Cada operador lança só os números dele. A meta de "Arquivos conferidos (CQ)" é individual — configurada em Metas, não soma entre operadores. A "meta ajustada" abaixo vale só para "Finalizados para envio".</div>
   <form class="entryform" id="form-qual">
     <div><label>Operador</label><select name="operadorId" required>${equipe.length?opts:'<option value="">Cadastre um operador de qualidade</option>'}</select></div>
     <div><label>Data</label><input type="date" name="data" value="${def.data||todayStr}" required></div>
-    <div><label>Arquivos conferidos (QC)</label><input type="number" name="arquivosQC" min="0" required></div>
-    <div><label>Finalizados p/ envio</label><input type="number" name="finalizados" min="0" required></div>
-    <div><label>Com certificado digital</label><input type="number" name="certificado" min="0"></div>
+    <div><label>Arquivos conferidos (CQ)</label><input type="number" name="arquivosQC" min="0" required></div>
+    <div><label>Certificado digital</label><input type="number" name="certificado" min="0"></div>
     <div><label>Ocerizados</label><input type="number" name="ocerizado" min="0"></div>
     <div><label>PDF/A unitário</label><input type="number" name="pdfA" min="0"></div>
-    <div><label>Meta ajustada hoje (opcional)</label><input type="number" name="metaManual" min="0"></div>
+    <div><label>Finalizados para envio</label><input type="number" name="finalizados" min="0" required></div>
+    <div><label>Meta ajustada (opcional, vale p/ Finalizados)</label><input type="number" name="metaManual" min="0"></div>
+    <div style="grid-column:1/-1"><label>Observação</label><input type="text" name="obs" placeholder="detalhes do dia"></div>
     <div><button class="btn" type="submit">Lançar</button></div>
   </form>
   <div class="section-title"><h2>Lançamentos de ${monthLabel(mk)}</h2></div>
   <div class="tablewrap">
   <table>
-    <thead><tr><th>Data</th><th>Operador</th><th>Servidor</th><th class="num">QC</th><th class="num">Finalizados</th><th class="num">Certificado</th><th class="num">OCR</th><th class="num">PDF/A</th><th class="num">%</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Data</th><th>Operador</th><th>Servidor</th><th class="num">CQ</th><th class="num">Meta CQ</th><th class="num">%CQ</th><th class="num">Certificado</th><th class="num">OCR</th><th class="num">PDF/A</th><th class="num">Finalizados</th><th class="num">Meta Fin.</th><th class="num">%Fin.</th><th>Status</th><th>Obs</th><th></th></tr></thead>
     <tbody>
     ${rows.length?rows.map(r=>{
-      const meta = r.q.metaManual?Number(r.q.metaManual):state.metaQualidade.finalizados;
+      const metaFin = r.q.metaManual?Number(r.q.metaManual):state.metaQualidade.finalizados;
+      const metaQC = metaQCDoDia();
+      const pFin = pct(r.q.finalizados, metaFin);
+      const pQC = pct(r.q.arquivosQC, metaQC);
       return `<tr>
         <td>${r.q.data.split('-').reverse().join('/')}</td>
         <td>${r.op?r.op.nome:'(removido)'}</td>
         <td>${r.op&&r.op.servidor?`<span class="scanner-chip ${r.op.servidor}">${SERVIDOR_LABEL[r.op.servidor]}</span>`:'-'}</td>
         <td class="num">${fmt(r.q.arquivosQC)}</td>
-        <td class="num">${fmt(r.q.finalizados)}</td>
+        <td class="num">${fmt(metaQC)}</td>
+        <td class="num">${metaQC?Math.round(pQC)+'%':'-'}</td>
         <td class="num">${fmt(r.q.certificado)}</td>
         <td class="num">${fmt(r.q.ocerizado)}</td>
         <td class="num">${fmt(r.q.pdfA)}</td>
-        <td class="num">${Math.round(pct(r.q.finalizados,meta))}%</td>
-        <td>${statusStamp(pct(r.q.finalizados,meta))}</td>
+        <td class="num">${fmt(r.q.finalizados)}</td>
+        <td class="num">${fmt(metaFin)}</td>
+        <td class="num">${metaFin?Math.round(pFin)+'%':'-'}</td>
+        <td>${statusStamp(pFin)}</td>
+        <td>${r.q.obs||'-'}</td>
         <td><button class="btn ghost" data-del-qual="${r.q.id}">Excluir</button></td>
-      </tr>`;}).join(''):`<tr><td colspan="11" class="empty">Nenhum lançamento em ${monthLabel(mk)} ainda.</td></tr>`}
+      </tr>`;}).join(''):`<tr><td colspan="15" class="empty">Nenhum lançamento em ${monthLabel(mk)} ainda.</td></tr>`}
     </tbody>
   </table>
   </div>`;
+}
+
+// ---------- DIÁRIO DE PRODUÇÃO ----------
+async function renderDiario(){
+  const mk = refMonth;
+  const diario = await getMonthArr('diario', mk);
+  const ocorrencias = await getMonthArr('ocorrencias', mk);
+  const defD = lastDefaults.diario;
+  const defO = lastDefaults.ocorrencia;
+  const opts = state.operadores.filter(o=>o.ativo).map(o=>`<option value="${o.id}" ${o.id===defO.operadorId?'selected':''}>${o.nome}</option>`).join('');
+
+  const diarioRows = diario.slice().sort((a,b)=>b.data.localeCompare(a.data));
+  const ocorRows = ocorrencias.slice().sort((a,b)=>b.data.localeCompare(a.data));
+
+  const resumoPorOp = {};
+  ocorrencias.forEach(o=>{
+    const op = state.operadores.find(x=>x.id===o.operadorId);
+    const nome = op?op.nome:'(removido)';
+    if(!resumoPorOp[nome]) resumoPorOp[nome] = {faltas:0, atrasos:0, semAviso:0};
+    if(o.tipo==='Falta') resumoPorOp[nome].faltas++; else resumoPorOp[nome].atrasos++;
+    if(o.avisou==='Não') resumoPorOp[nome].semAviso++;
+  });
+  const resumoRows = Object.entries(resumoPorOp).sort((a,b)=>b[1].faltas-a[1].faltas);
+
+  return `
+  <div class="section-title"><h2>Registro do dia — ${monthLabel(mk)}</h2></div>
+  <form class="entryform" id="form-diario">
+    <div><label>Data</label><input type="date" name="data" value="${defD.data||todayStr}" required></div>
+    <div><label>Coordenador do dia</label><input type="text" name="coordenador" value="${defD.coordenador||''}" placeholder="nome do coordenador"></div>
+    <div style="grid-column:1/-1"><label>Resumo do dia</label><input type="text" name="resumo" placeholder="o que aconteceu no dia"></div>
+    <div><button class="btn" type="submit">Registrar</button></div>
+  </form>
+  <div class="tablewrap" style="margin-bottom:20px">
+  <table>
+    <thead><tr><th>Data</th><th>Coordenador</th><th>Resumo</th><th></th></tr></thead>
+    <tbody>
+    ${diarioRows.length?diarioRows.map(d=>`
+      <tr>
+        <td>${d.data.split('-').reverse().join('/')}</td>
+        <td>${d.coordenador||'-'}</td>
+        <td>${d.resumo||'-'}</td>
+        <td><button class="btn ghost" data-del-diario="${d.id}">Excluir</button></td>
+      </tr>`).join(''):`<tr><td colspan="4" class="empty">Nenhum resumo registrado em ${monthLabel(mk)} ainda.</td></tr>`}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="section-title"><h2>Atraso ou falta</h2></div>
+  <form class="entryform" id="form-ocorrencia">
+    <div><label>Data</label><input type="date" name="data" value="${defO.data||todayStr}" required></div>
+    <div><label>Operador</label><select name="operadorId" required>${state.operadores.length?opts:'<option value="">Cadastre um operador</option>'}</select></div>
+    <div><label>Tipo</label><select name="tipo"><option value="Falta" ${defO.tipo==='Falta'?'selected':''}>Falta</option><option value="Atraso" ${defO.tipo==='Atraso'?'selected':''}>Atraso</option></select></div>
+    <div><label>Avisou?</label><select name="avisou"><option value="Sim">Sim</option><option value="Não">Não</option></select></div>
+    <div><label>Atestado (se falta)</label><select name="atestado"><option value="Não se aplica">Não se aplica</option><option value="Com atestado">Com atestado</option><option value="Sem atestado">Sem atestado</option></select></div>
+    <div><label>Coordenador do dia</label><input type="text" name="coordenador" value="${defO.coordenador||''}" placeholder="nome do coordenador"></div>
+    <div style="grid-column:1/-1"><label>Observação</label><input type="text" name="obs" placeholder="detalhes"></div>
+    <div><button class="btn" type="submit">Registrar</button></div>
+  </form>
+  <div class="tablewrap" style="margin-bottom:20px">
+  <table>
+    <thead><tr><th>Data</th><th>Operador</th><th>Tipo</th><th>Avisou</th><th>Atestado</th><th>Coordenador</th><th>Obs</th><th></th></tr></thead>
+    <tbody>
+    ${ocorRows.length?ocorRows.map(o=>{
+      const op = state.operadores.find(x=>x.id===o.operadorId);
+      return `<tr>
+        <td>${o.data.split('-').reverse().join('/')}</td>
+        <td>${op?op.nome:'(removido)'}</td>
+        <td><span class="tag">${o.tipo}</span></td>
+        <td>${o.avisou}</td>
+        <td>${o.atestado}</td>
+        <td>${o.coordenador||'-'}</td>
+        <td>${o.obs||'-'}</td>
+        <td><button class="btn ghost" data-del-ocor="${o.id}">Excluir</button></td>
+      </tr>`;}).join(''):`<tr><td colspan="8" class="empty">Nenhum atraso ou falta registrado em ${monthLabel(mk)}.</td></tr>`}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="section-title"><h2>Resumo do mês por operador</h2></div>
+  <div class="footnote" style="margin:-4px 0 10px">3 ou mais faltas no mês entram em destaque para atenção.</div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Operador</th><th class="num">Faltas</th><th class="num">Atrasos</th><th class="num">Faltas sem aviso</th><th>Status</th></tr></thead>
+    <tbody>
+    ${resumoRows.length?resumoRows.map(([nome,r])=>`
+      <tr>
+        <td>${nome}</td>
+        <td class="num">${r.faltas}</td>
+        <td class="num">${r.atrasos}</td>
+        <td class="num">${r.semAviso}</td>
+        <td>${r.faltas>=3?'<span class="stamp red">Atenção</span>':(r.faltas>0||r.atrasos>0?'<span class="stamp amber">Acompanhar</span>':'<span class="stamp green">OK</span>')}</td>
+      </tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhuma ocorrência em ${monthLabel(mk)}.</td></tr>`}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+// ---------- TAREFAS ----------
+function renderTarefas(){
+  const pendentes = state.tarefas.filter(t=>t.status!=='Concluída');
+  const concluidas = state.tarefas.filter(t=>t.status==='Concluída');
+  const opts = state.operadores.map(o=>`<option value="${o.nome}"></option>`).join('');
+  return `
+  <div class="section-title"><h2>Nova tarefa</h2></div>
+  <form class="entryform" id="form-tarefa">
+    <div style="grid-column:1/-1"><label>Título / descrição</label><input type="text" name="titulo" required placeholder="ex: revisar caixas do lote 12"></div>
+    <div><label>Responsável (opcional)</label><input type="text" name="responsavel" list="lista-operadores" placeholder="nome"></div>
+    <datalist id="lista-operadores">${opts}</datalist>
+    <div><label>Prazo (opcional)</label><input type="date" name="prazo"></div>
+    <div><label>Prioridade</label><select name="prioridade"><option value="Normal">Normal</option><option value="Alta">Alta</option><option value="Baixa">Baixa</option></select></div>
+    <div><button class="btn" type="submit">Adicionar tarefa</button></div>
+  </form>
+
+  <div class="section-title"><h2>Pendentes</h2><span class="muted">${pendentes.length} tarefa(s)</span></div>
+  <div class="tablewrap" style="margin-bottom:20px">
+  <table>
+    <thead><tr><th>Título</th><th>Responsável</th><th>Prazo</th><th>Prioridade</th><th></th></tr></thead>
+    <tbody>
+    ${pendentes.length?pendentes.slice().sort((a,b)=>(a.prazo||'9999').localeCompare(b.prazo||'9999')).map(t=>`
+      <tr>
+        <td>${t.titulo}</td>
+        <td>${t.responsavel||'-'}</td>
+        <td>${t.prazo?t.prazo.split('-').reverse().join('/'):'-'}</td>
+        <td><span class="tag">${t.prioridade||'Normal'}</span></td>
+        <td class="rowflex"><button class="btn secondary" data-concluir-tarefa="${t.id}">Concluir</button><button class="btn ghost" data-del-tarefa="${t.id}">Excluir</button></td>
+      </tr>`).join(''):'<tr><td colspan="5" class="empty">Nenhuma tarefa pendente.</td></tr>'}
+    </tbody>
+  </table>
+  </div>
+
+  ${concluidas.length?`
+  <div class="section-title"><h2>Concluídas</h2><span class="muted">${concluidas.length} tarefa(s)</span></div>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Título</th><th>Responsável</th><th>Concluída em</th><th></th></tr></thead>
+    <tbody>
+    ${concluidas.slice().sort((a,b)=>(b.concluidoEm||'').localeCompare(a.concluidoEm||'')).map(t=>`
+      <tr>
+        <td>${t.titulo}</td>
+        <td>${t.responsavel||'-'}</td>
+        <td>${t.concluidoEm||'-'}</td>
+        <td><button class="btn ghost" data-del-tarefa="${t.id}">Excluir</button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`:''}
+  `;
 }
 
 // ---------- OPERADORES ----------
@@ -1186,8 +1322,8 @@ function renderMetas(){
   <div class="section-title"><h2>Metas de higienização e qualidade</h2></div>
   <form class="entryform" id="form-metas-outras">
     <div><label>Higienização — caixas/dia por pessoa</label><input type="number" min="0" name="metaHig" value="${state.metaHigienizacao}"></div>
-    <div><label>Qualidade — arquivos QC/dia</label><input type="number" min="0" name="metaQC" value="${state.metaQualidade.qc}"></div>
-    <div><label>Qualidade — finalizados/dia</label><input type="number" min="0" name="metaFin" value="${state.metaQualidade.finalizados}"></div>
+    <div><label>Qualidade — meta individual de CQ (arquivos conferidos), por operador</label><input type="number" min="0" name="metaQC" value="${state.metaQualidade.qc}"></div>
+    <div><label>Qualidade — meta de finalizados p/ envio/dia</label><input type="number" min="0" name="metaFin" value="${state.metaQualidade.finalizados}"></div>
     <div><button class="btn" type="submit">Salvar</button></div>
   </form>
 
@@ -1218,7 +1354,7 @@ async function renderFechamento(){
   const qual = await getMonthArr('qualidade', mk);
   const envio = await getMonthArr('envio', mk);
   const aprov = await getMonthArr('aprovacoes', mk);
-  const nas = await getMonthArr('nas', mk);
+  const ocorrencias = await getMonthArr('ocorrencias', mk);
   const jaFechado = state.fechamentos.find(f=>f.mes===mk);
 
   const porOperador = state.operadores.map(op=>{
@@ -1245,7 +1381,8 @@ async function renderFechamento(){
   const aprovadosMes = aprov.reduce((s,a)=>s+Number(a.aprovados||0),0);
   const nfDoMesFech = state.nfFechamentos.find(f=>f.mes===mk);
   const pagosMes = nfDoMesFech ? Number(nfDoMesFech.imagensPagas||0) : 0;
-  const nasMes = nas.reduce((s,e)=>s+Number(e.arquivos||0),0);
+  const totalFaltas = ocorrencias.filter(o=>o.tipo==='Falta').length;
+  const totalAtrasos = ocorrencias.filter(o=>o.tipo==='Atraso').length;
 
   return `
   <div class="section-title"><h2>Relatório mensal — ${monthLabel(mk)}</h2>
@@ -1273,7 +1410,7 @@ async function renderFechamento(){
     <div class="card acc-blue"><h3>Enviado ArqGer no mês</h3><div class="big">${fmt(envioMes)}</div></div>
     <div class="card acc-green"><h3>Aprovados no mês</h3><div class="big">${fmt(aprovadosMes)}</div></div>
     <div class="card acc-brass"><h3>Pagos no mês (NF)</h3><div class="big">${fmt(pagosMes)}</div>${nfDoMesFech?`<div class="small">NF nº ${nfDoMesFech.numeroNF||'-'} · fechado em ${nfDoMesFech.dataFechamento}</div>`:`<div class="small">faturamento ainda não fechado</div>`}</div>
-    <div class="card acc-teal"><h3>Backup NAS no mês</h3><div class="big">${fmt(nasMes)}</div></div>
+    <div class="card acc-red"><h3>Faltas / atrasos no mês</h3><div class="big">${totalFaltas} / ${totalAtrasos}</div><div class="small">detalhes na aba Diário de produção</div></div>
   </div>
   ${state.fechamentos.length?`
   <div class="section-title"><h2>Meses fechados</h2></div>
@@ -1367,19 +1504,6 @@ function bindHandlers(){
     render();
   };
 
-  const formNas = document.getElementById('form-nas');
-  if(formNas) formNas.onsubmit = async (e)=>{
-    e.preventDefault();
-    const fd = new FormData(formNas);
-    const entry = {id:uid(), data:fd.get('data'), responsavel:fd.get('responsavel')||'', arquivos:Number(fd.get('arquivos')||0)};
-    const mk = monthKey(entry.data);
-    const arr = await getMonthArr('nas', mk);
-    arr.push(entry);
-    await saveMonthArr('nas', mk);
-    toast('Backup lançado.');
-    render();
-  };
-
   const formHig = document.getElementById('form-hig');
   if(formHig) formHig.onsubmit = async (e)=>{
     e.preventDefault();
@@ -1401,15 +1525,59 @@ function bindHandlers(){
     const fd = new FormData(formQual);
     if(!fd.get('operadorId')){ toast('Cadastre um operador de qualidade primeiro.'); return; }
     const entry = {id:uid(), operadorId:fd.get('operadorId'), data:fd.get('data'),
-      arquivosQC:Number(fd.get('arquivosQC')||0), finalizados:Number(fd.get('finalizados')||0),
+      arquivosQC:Number(fd.get('arquivosQC')||0),
       certificado:Number(fd.get('certificado')||0), ocerizado:Number(fd.get('ocerizado')||0),
-      pdfA:Number(fd.get('pdfA')||0), metaManual: fd.get('metaManual')?Number(fd.get('metaManual')):null};
+      pdfA:Number(fd.get('pdfA')||0),
+      finalizados:Number(fd.get('finalizados')||0),
+      metaManual: fd.get('metaManual')?Number(fd.get('metaManual')):null,
+      obs: fd.get('obs')||''};
     const mk = monthKey(entry.data);
     const arr = await getMonthArr('qualidade', mk);
     arr.push(entry);
     await saveMonthArr('qualidade', mk);
     lastDefaults.qualidade = {operadorId: entry.operadorId, data: entry.data};
     toast('Controle de qualidade lançado.');
+    render();
+  };
+
+  const formDiario = document.getElementById('form-diario');
+  if(formDiario) formDiario.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formDiario);
+    const entry = {id:uid(), data:fd.get('data'), coordenador:fd.get('coordenador')||'', resumo:fd.get('resumo')||''};
+    const mk = monthKey(entry.data);
+    const arr = await getMonthArr('diario', mk);
+    arr.push(entry);
+    await saveMonthArr('diario', mk);
+    lastDefaults.diario = {data: entry.data, coordenador: entry.coordenador};
+    toast('Resumo do dia registrado.');
+    render();
+  };
+
+  const formOcor = document.getElementById('form-ocorrencia');
+  if(formOcor) formOcor.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formOcor);
+    if(!fd.get('operadorId')){ toast('Cadastre um operador primeiro.'); return; }
+    const entry = {id:uid(), data:fd.get('data'), operadorId:fd.get('operadorId'), tipo:fd.get('tipo'),
+      avisou:fd.get('avisou'), atestado:fd.get('atestado'), coordenador:fd.get('coordenador')||'', obs:fd.get('obs')||''};
+    const mk = monthKey(entry.data);
+    const arr = await getMonthArr('ocorrencias', mk);
+    arr.push(entry);
+    await saveMonthArr('ocorrencias', mk);
+    lastDefaults.ocorrencia = {operadorId: entry.operadorId, tipo: entry.tipo, data: entry.data, coordenador: entry.coordenador};
+    toast('Ocorrência registrada.');
+    render();
+  };
+
+  const formTarefa = document.getElementById('form-tarefa');
+  if(formTarefa) formTarefa.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(formTarefa);
+    const t = {id:uid(), titulo:fd.get('titulo'), responsavel:fd.get('responsavel')||'', prazo:fd.get('prazo')||'', prioridade:fd.get('prioridade')||'Normal', status:'Pendente', criadoEm: todayStr};
+    state.tarefas.push(t);
+    await persistTarefas();
+    toast('Tarefa adicionada.');
     render();
   };
 
@@ -1526,13 +1694,6 @@ function bindHandlers(){
       render();
     };
   });
-  main.querySelectorAll('[data-del-nas]').forEach(b=>{
-    b.onclick = async ()=>{
-      const mk = refMonth; const arr = await getMonthArr('nas', mk);
-      monthCache.nas[mk] = arr.filter(p=>p.id!==b.dataset.delNas);
-      await saveMonthArr('nas', mk); render();
-    };
-  });
   main.querySelectorAll('[data-del-hig]').forEach(b=>{
     b.onclick = async ()=>{
       const mk = refMonth; const arr = await getMonthArr('higienizacao', mk);
@@ -1545,6 +1706,33 @@ function bindHandlers(){
       const mk = refMonth; const arr = await getMonthArr('qualidade', mk);
       monthCache.qualidade[mk] = arr.filter(p=>p.id!==b.dataset.delQual);
       await saveMonthArr('qualidade', mk); render();
+    };
+  });
+  main.querySelectorAll('[data-del-diario]').forEach(b=>{
+    b.onclick = async ()=>{
+      const mk = refMonth; const arr = await getMonthArr('diario', mk);
+      monthCache.diario[mk] = arr.filter(p=>p.id!==b.dataset.delDiario);
+      await saveMonthArr('diario', mk); render();
+    };
+  });
+  main.querySelectorAll('[data-del-ocor]').forEach(b=>{
+    b.onclick = async ()=>{
+      const mk = refMonth; const arr = await getMonthArr('ocorrencias', mk);
+      monthCache.ocorrencias[mk] = arr.filter(p=>p.id!==b.dataset.delOcor);
+      await saveMonthArr('ocorrencias', mk); render();
+    };
+  });
+  main.querySelectorAll('[data-concluir-tarefa]').forEach(b=>{
+    b.onclick = async ()=>{
+      const t = state.tarefas.find(x=>x.id===b.dataset.concluirTarefa);
+      if(t){ t.status='Concluída'; t.concluidoEm = todayStr.split('-').reverse().join('/'); }
+      await persistTarefas(); toast('Tarefa concluída.'); render();
+    };
+  });
+  main.querySelectorAll('[data-del-tarefa]').forEach(b=>{
+    b.onclick = async ()=>{
+      state.tarefas = state.tarefas.filter(x=>x.id!==b.dataset.delTarefa);
+      await persistTarefas(); toast('Tarefa excluída.'); render();
     };
   });
 
