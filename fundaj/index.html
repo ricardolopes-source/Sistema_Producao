@@ -301,11 +301,14 @@ const colabs=()=>M('colabs',()=>all('colab').sort((a,b)=>a.nome.localeCompare(b.
 const cById=id=>colabs().find(c=>c.id===id);
 const ativoEm=(c,d)=>(!c.inicio||d>=c.inicio)&&(!c.fim||d<=c.fim);
 function condOf(c,d){const l=(c.cond||[]).slice().sort((a,b)=>a.desde<b.desde?-1:1);let r=l[0]||{metas:{}};for(const x of l)if(x.desde<=d)r=x;return r}
-function metaInd(c,st,d){if(!isUtil(d)||!ativoEm(c,d)||!(c.funcs||[]).includes(st))return 0;
-  const own=condOf(c,d).metas?.[st];if(own>0)return own;
-  return M(`auto|${st}|${d}`,()=>{const g=colabs().filter(x=>ativoEm(x,d)&&(x.funcs||[]).includes(st));let fixed=0,free=0;
-    for(const x of g){const m=condOf(x,d).metas?.[st];if(m>0)fixed+=m;else free++}
-    return free?Math.max(0,(planDay(st,d)-fixed)/free):0})}
+/* meta diária própria do operador: vale para a soma de escâner, fotos e finalização */
+const temProd=c=>(c.funcs||[]).some(s=>PROD.includes(s));
+function metaPropria(c,d){const co=condOf(c,d);if(co.meta>0)return co.meta;const m=co.metas||{};return PROD.reduce((t,s)=>t+num(m[s]),0)}
+function metaCol(c,d){if(!isUtil(d)||!ativoEm(c,d)||c.ativo===false&&c.fim&&d>c.fim||!temProd(c))return 0;
+  const own=metaPropria(c,d);if(own>0)return own;
+  return M(`auto|${d}`,()=>{const g=colabs().filter(x=>ativoEm(x,d)&&temProd(x));let fixed=0,free=0;
+    for(const x of g){const m=metaPropria(x,d);if(m>0)fixed+=m;else free++}
+    const time=planDay('dig',d)+planDay('foto',d)+planDay('fin',d);return free?Math.max(0,(time-fixed)/free):0})}
 const lancs=()=>M('lancs',()=>all('lanc').sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:(b.em||0)-(a.em||0)));
 const presOf=(d,cid)=>(shards[`pres_${ymOf(d)}`]||{})[`${d}_${cid}`];
 const inR=(l,a,b)=>l.data>=a&&l.data<=b;
@@ -322,17 +325,21 @@ function nota(p){const n=cfg().notas;if(p==null)return{l:'Sem meta',k:'z'};if(p>
 const bdg=p=>{const x=nota(p);return`<span class="bdg ${x.k}">${x.l}</span>`};
 const horasDia=(cid,d)=>{const p=presOf(d,cid);if(p&&p.horas!=null&&p.horas!=='')return num(p.horas);return lancs().filter(l=>l.colab===cid&&l.data===d).reduce((t,l)=>t+num(l.horas),0)};
 /* média por dia com produção, para comparar períodos */
-function media(cid,st,a,b){const ls=lancs().filter(l=>l.colab===cid&&l.func===st&&inR(l,a,b));const d=new Set(ls.map(l=>l.data)).size;return d?ls.reduce((t,l)=>t+num(l.qtd),0)/d:0}
+function media(cid,a,b){const ls=lancs().filter(l=>l.colab===cid&&PROD.includes(l.func)&&inR(l,a,b));const d=new Set(ls.map(l=>l.data)).size;return d?ls.reduce((t,l)=>t+num(l.qtd),0)/d:0}
 function trend(cur,prev){if(!cur||!prev)return'<span class="muted small">Sem comparação</span>';const p=(cur/prev-1)*100;
   if(p>=3)return`<span class="bdg g">▲ Melhorou ${fn(p)}%</span>`;if(p<=-3)return`<span class="bdg c">▼ Caiu ${fn(-p)}%</span>`;return'<span class="bdg z">Estável</span>'}
+/* uma linha por operador: soma de todas as funções */
 function resumo(a,b,cid){const lim=hoje()<b?hoje():b,out=[];
   for(const c of colabs()){if(cid&&c.id!==cid)continue;
-    const my=lancs().filter(l=>l.colab===c.id&&inR(l,a,b));const st=new Set(my.map(l=>l.func));
-    for(const s of ALLST){const active=(c.funcs||[]).includes(s)&&utilDays(a,b).some(d=>ativoEm(c,d));if(!st.has(s)&&!active)continue;
-      const ls=my.filter(l=>l.func===s),qtd=ls.reduce((t,l)=>t+num(l.qtd),0),rep=ls.reduce((t,l)=>t+num(l.rep),0),hs=ls.reduce((t,l)=>t+num(l.horas),0);
-      const meta=lim>=a?utilDays(a,lim).reduce((t,d)=>t+metaInd(c,s,d),0):0,dias=new Set(ls.map(l=>l.data)).size;
-      out.push({c,s,qtd,rep,hs,meta,p:meta>0?qtd/meta*100:null,dias,med:dias?qtd/dias:0})}}
+    const ls=lancs().filter(l=>l.colab===c.id&&inR(l,a,b)&&PROD.includes(l.func));
+    if(!ls.length&&!(temProd(c)&&utilDays(a,b).some(d=>ativoEm(c,d))))continue;
+    const q={dig:0,foto:0,fin:0};ls.forEach(l=>q[l.func]+=num(l.qtd));const qtd=q.dig+q.foto+q.fin,rep=ls.reduce((t,l)=>t+num(l.rep),0),hs=ls.reduce((t,l)=>t+num(l.horas),0);
+    const meta=lim>=a?utilDays(a,lim).reduce((t,d)=>t+metaCol(c,d),0):0,dias=new Set(ls.map(l=>l.data)).size;
+    out.push({c,q,qtd,rep,hs,meta,p:meta>0?qtd/meta*100:null,dias,med:dias?qtd/dias:0})}
   return out}
+const qCols=r=>PROD.map(s=>`<td class="n">${r.q[s]?fn(r.q[s]):'-'}</td>`).join('');
+const qHead=()=>PROD.map(s=>`<th class="n"><span class="dot" style="background:${ST[s].c}"></span>${ST[s].s}</th>`).join('');
+const prodDia=(cid,d)=>lancs().filter(l=>l.colab===cid&&l.data===d&&PROD.includes(l.func)).reduce((t,l)=>t+num(l.qtd),0);
 function presenca(a,b,cid){let faltas=0,parc=0,hs=0;const dias=new Set();for(let d=a;d<=b;d=nextD(d)){const p=presOf(d,cid);if(p?.status==='falta')faltas++;if(p?.status==='parcial')parc++;hs+=horasDia(cid,d)}
   for(const l of lancs())if(l.colab===cid&&inR(l,a,b))dias.add(l.data);return{faltas,parc,hs,dias:dias.size}}
 const fechado=d=>{const f=shards.fech||{};return f[d]||f[ymOf(d)]};
@@ -341,7 +348,7 @@ const aberto=d=>{const f=fechado(d);if(f){toast(`${f.id.length>7?'Este dia':'Est
 function semanas(ref,n=4){const d=dt(ref),w=(d.getDay()+6)%7;d.setDate(d.getDate()-w);const o=[];for(let i=n-1;i>=0;i--){const s=new Date(d);s.setDate(s.getDate()-7*i);const a=iso(s);o.push({a,b:nextD(a,4)})}return o}
 
 /* ========= Estado de tela ========= */
-const TABS=[['painel','Painel'],['lancar','Lançar produção'],['entregas','Entregas e notas'],['equipe','Equipe'],['historico','Histórico'],['metas','Metas'],['diario','Diário da equipe'],['tarefas','Tarefas'],['acervo','Acervo'],['fechamento','Fechamento']];
+const TABS=[['painel','Painel'],['lancar','Lançar produção'],['entregas','Entregas e notas'],['equipe','Equipe'],['historico','Histórico'],['metas','Metas'],['diario','Diário da equipe'],['tarefas','Tarefas e diária'],['acervo','Acervo'],['fechamento','Fechamento']];
 const today0=()=>{const h=hoje(),c=DEF;return h<c.inicio?c.inicio:h};
 const ui={tab:'painel',ym:ymOf(today0()),st:'dig',lanc:{data:today0(),colab:'',func:'dig',orig:'esc',qtd:'',rep:'',horas:'',obra:'',obs:''},fCol:'',fSt:'',dia:today0(),hist:'',fmode:'mes',fdia:today0(),aq:''};
 try{const t=localStorage.getItem('fadurpe_tab');if(TABS.some(x=>x[0]===t))ui.tab=t}catch(e){}
@@ -378,8 +385,8 @@ function V_painel(){const c=cfg(),h=hoje(),t=totals(),td=totals(h,h),a=`${ui.ym}
   else if(!fc.fim)fcT=`<b>Sem ritmo ainda</b><span>Sem produção de ${fc.g==='capt'?'captura':'finalização'} nos últimos dias</span>`;
   else fcT=`<b>${br(fc.fim)} ${fc.fim<=c.fimAlvo?'<span class="bdg g">Em 5 meses</span>':fc.fim<=c.fimPrazo?'<span class="bdg w">Dentro do prazo</span>':'<span class="bdg c">Fora do prazo</span>'}</b><span>Previsão pelo ritmo de ${fc.g==='capt'?'captura':'finalização'}: ${fn(fc.rate)} por dia</span>`;
   const from=h<c.inicio?c.inicio:h,saldo=t.capt-sumPlan('capt',c.inicio,h),rA=utilDays(from,c.fimAlvo).length,restG=TOTAL-Math.min(t.capt,t.fin);
-  const miss=colabs().filter(x=>ativoEm(x,h)&&(x.funcs||[]).some(s=>metaInd(x,s,h)>0)&&!lancs().some(l=>l.colab===x.id&&l.data===h)&&presOf(h,x.id)?.status!=='falta');
-  const rows=resumo(a,b).filter(r=>r.s!=='sup').sort((x,y)=>(y.p??-1)-(x.p??-1));
+  const miss=colabs().filter(x=>ativoEm(x,h)&&metaCol(x,h)>0&&!lancs().some(l=>l.colab===x.id&&l.data===h)&&presOf(h,x.id)?.status!=='falta');
+  const rows=resumo(a,b).sort((x,y)=>(y.p??-1)-(x.p??-1));
   const ref=b<h?b:h,w=semanas(ref),w1=w[3],w0=w[2];
   return`<section class="panel">
     <div class="spread"><h2>Andamento do contrato</h2><span class="sub small">${inProj?`Dia útil ${fn(idx)} de ${dias.length}`:`Início em ${br(c.inicio)}`}</span></div>
@@ -399,17 +406,17 @@ function V_painel(){const c=cfg(),h=hoje(),t=totals(),td=totals(h,h),a=`${ui.ym}
     <div class="leg"><span><span class="dot" style="background:${ST[ui.st].c}"></span>${ST[ui.st].q}</span><span><span class="ln" style="border-color:var(--ink)"></span>Meta do dia</span></div>
     <div class="chart" id="cDay"></div></section>
   <section class="panel"><h2>Mês a mês</h2>${tabelaMeses()}</section>
-  <section class="panel"><div class="spread"><h2>Operadores em ${ymLabel(ui.ym).toLowerCase()}</h2><button class="btn sm noprint" data-act="print">Imprimir painel</button></div>
-    ${rows.length?`<div class="tw"><table><thead><tr><th>Operador</th><th>Serviço</th><th class="n">Hoje</th><th class="n">No mês</th><th class="n">Meta até hoje</th><th>Atingido</th><th class="n">Média por dia</th><th class="n">Faltas</th><th>Avaliação</th><th>Semana contra a anterior</th></tr></thead><tbody>
-    ${rows.map(r=>{const q=lancs().filter(l=>l.colab===r.c.id&&l.func===r.s&&l.data===h).reduce((t,l)=>t+num(l.qtd),0),f=presenca(a,b,r.c.id);
-      return`<tr class="click" data-act="goHist" data-v="${r.c.id}"><td><b>${esc(r.c.nome)}</b></td><td><span class="dot" style="background:${ST[r.s].c}"></span>${ST[r.s].s}</td><td class="n">${fn(q)}</td><td class="n">${fn(r.qtd)}</td><td class="n">${fn(r.meta)}</td><td style="min-width:110px">${r.p!=null?`<div class="row" style="flex-wrap:nowrap"><div class="meter" style="flex:1"><span style="width:${Math.min(100,r.p)}%"></span></div><span class="small">${fn(r.p)}%</span></div>`:'<span class="muted small">Sem meta</span>'}</td><td class="n">${fn(r.med)}</td><td class="n">${f.faltas}</td><td>${bdg(r.p)}</td><td>${trend(media(r.c.id,r.s,w1.a,w1.b),media(r.c.id,r.s,w0.a,w0.b))}</td></tr>`}).join('')}
+  <section class="panel"><div class="spread"><h2>Operadores em ${ymLabel(ui.ym).toLowerCase()}</h2><span class="small sub">A meta de cada operador vale para a soma de escâner, fotos e finalização</span><button class="btn sm noprint" data-act="print">Imprimir painel</button></div>
+    ${rows.length?`<div class="tw"><table><thead><tr><th>Operador</th><th class="n">Hoje</th>${qHead()}<th class="n">Total no mês</th><th class="n">Meta até hoje</th><th>Atingido</th><th class="n">Média por dia</th><th class="n">Faltas</th><th>Avaliação</th><th>Semana contra a anterior</th></tr></thead><tbody>
+    ${rows.map(r=>{const q=prodDia(r.c.id,h),mh=metaCol(r.c,h),f=presenca(a,b,r.c.id);
+      return`<tr class="click" data-act="goHist" data-v="${r.c.id}"><td><b>${esc(r.c.nome)}</b></td><td class="n">${fn(q)}${mh?`<span class="small muted"> de ${fn(mh)}</span>`:''}</td>${qCols(r)}<td class="n"><b>${fn(r.qtd)}</b></td><td class="n">${fn(r.meta)}</td><td style="min-width:110px">${r.p!=null?`<div class="row" style="flex-wrap:nowrap"><div class="meter" style="flex:1"><span style="width:${Math.min(100,r.p)}%"></span></div><span class="small">${fn(r.p)}%</span></div>`:'<span class="muted small">Sem meta</span>'}</td><td class="n">${fn(r.med)}</td><td class="n">${f.faltas}</td><td>${bdg(r.p)}</td><td>${trend(media(r.c.id,w1.a,w1.b),media(r.c.id,w0.a,w0.b))}</td></tr>`}).join('')}
     </tbody></table></div>`:`<div class="empty">Nenhum operador cadastrado. <button class="btn" data-act="tab" data-v="equipe">Cadastrar equipe</button></div>`}</section>
   ${evolucao(ref)}`}
 function totNf(){return nfs().reduce((t,n)=>t+num(n.qtd),0)}
-function evolucao(ref){const w=semanas(ref),ops=[];for(const c of colabs())for(const s of PROD)if((c.funcs||[]).includes(s)||lancs().some(l=>l.colab===c.id&&l.func===s))ops.push({c,s});
+function evolucao(ref){const w=semanas(ref),ops=colabs().filter(c=>temProd(c)||lancs().some(l=>l.colab===c.id&&PROD.includes(l.func)));
   if(!ops.length)return'';
-  return`<section class="panel"><div class="spread"><h2>Evolução dos operadores</h2><span class="small sub">Média de imagens por dia trabalhado, semana a semana</span></div><div class="tw"><table><thead><tr><th>Operador</th><th>Serviço</th>${w.map(x=>`<th class="n">${br2(x.a)} a ${br2(x.b)}</th>`).join('')}<th>Última semana</th></tr></thead><tbody>
-  ${ops.map(({c,s})=>{const m=w.map(x=>media(c.id,s,x.a,x.b));return`<tr><td><b>${esc(c.nome)}</b></td><td><span class="dot" style="background:${ST[s].c}"></span>${ST[s].s}</td>${m.map(v=>`<td class="n">${v?fn(v):'-'}</td>`).join('')}<td>${trend(m[3],m[2])}</td></tr>`}).join('')}</tbody></table></div></section>`}
+  return`<section class="panel"><div class="spread"><h2>Evolução dos operadores</h2><span class="small sub">Média de imagens por dia trabalhado, somando todas as funções</span></div><div class="tw"><table><thead><tr><th>Operador</th>${w.map(x=>`<th class="n">${br2(x.a)} a ${br2(x.b)}</th>`).join('')}<th>Última semana</th></tr></thead><tbody>
+  ${ops.map(c=>{const m=w.map(x=>media(c.id,x.a,x.b));return`<tr><td><b>${esc(c.nome)}</b></td>${m.map(v=>`<td class="n">${v?fn(v):'-'}</td>`).join('')}<td>${trend(m[3],m[2])}</td></tr>`}).join('')}</tbody></table></div></section>`}
 function tabelaMeses(){const c=cfg();let tp=0;const tt={dig:0,foto:0,fin:0,ent:0,apr:0};
   const rows=monthsList().map(y=>{const a=y===ymOf(c.inicio)?c.inicio:`${y}-01`,b=lastOfM(y)>c.fimPrazo?c.fimPrazo:lastOfM(y),dd=utilDays(a,b).length,mp=sumPlan('capt',a,b),t=totals(a,b);tp+=mp;for(const k in tt)tt[k]+=t[k];const mt=c.metas[y]||{};
     return`<tr class="click ${y===ui.ym?'cur':''}" data-act="goM" data-v="${y}"><td>${MES[+y.slice(5,7)-1]}</td><td class="n">${dd}</td><td class="n">${fn((mt.dig||0)+(mt.foto||0))}</td><td class="n">${fn(mp)}</td><td class="n">${fn(t.dig)}</td><td class="n">${fn(t.foto)}</td><td class="n">${fn(t.fin)}</td><td class="n">${fn(t.ent)}</td><td class="n">${fn(t.apr)}</td><td class="n">${mp?fn(t.capt/mp*100)+'%':'-'}</td></tr>`}).join('');
@@ -456,7 +463,7 @@ function drawDay(){const el=$('#cDay');if(!el)return;const a=`${ui.ym}-01`,b=las
 function V_lancar(){const f=ui.lanc,cs=colabs().filter(c=>c.ativo!==false);
   if(!colabs().length)return`<section class="panel"><div class="empty"><p>Cadastre a equipe para começar a lançar a produção.</p><br><button class="btn pri" data-act="tab" data-v="equipe">Cadastrar equipe</button></div></section>`;
   const sel=cById(f.colab),funcs=sel?(sel.funcs||[]).filter(s=>ST[s]):ALLST;if(!funcs.includes(f.func))f.func=funcs[0]||'dig';
-  const feito=sel?lancs().filter(l=>l.colab===sel.id&&l.func===f.func&&l.data===f.data).reduce((t,l)=>t+num(l.qtd),0):0,mi=sel?metaInd(sel,f.func,f.data):0;
+  const feito=sel?prodDia(sel.id,f.data):0,mi=sel?metaCol(sel,f.data):0;
   const a=`${ui.ym}-01`,b=lastOfM(ui.ym);let list=lancs().filter(l=>inR(l,a,b));if(ui.fCol)list=list.filter(l=>l.colab===ui.fCol);if(ui.fSt)list=list.filter(l=>l.func===ui.fSt);
   const tq=list.reduce((t,l)=>t+num(l.qtd),0),th=list.reduce((t,l)=>t+num(l.horas),0);
   return`<section class="panel noprint"><form id="fLanc" class="form" autocomplete="off">
@@ -469,7 +476,7 @@ function V_lancar(){const f=ui.lanc,cs=colabs().filter(c=>c.ativo!==false);
     <label class="f">${f.func==='fin'?'Reprovadas no controle':'Refeitas'}<input name="rep" type="number" min="0" inputmode="numeric" value="${esc(f.rep)}" data-lf></label>
     <label class="f">Registro da obra (opcional)<input name="obra" list="dlObras" value="${esc(f.obra)}" data-lf><datalist id="dlObras">${all('acervo').slice(0,500).map(o=>`<option value="${esc(o.registro)}">`).join('')}</datalist></label>
     <label class="f wide">Observações sobre a quantidade<input name="obs" value="${esc(f.obs)}" data-lf></label>
-    <div class="spread" style="grid-column:1/-1"><span class="sub">${sel?`${esc(sel.nome)} em ${ST[f.func].n}, ${br(f.data)}: <b>${fn(feito)}</b> lançadas${mi?` de <b>${fn(mi)}</b> da meta`:', sem meta neste dia'}`:'Escolha o operador para ver a meta do dia'}</span><button class="btn pri" type="submit">Lançar</button></div>
+    <div class="spread" style="grid-column:1/-1"><span class="sub">${sel?`${esc(sel.nome)} em ${br(f.data)}, somando todas as funções: <b>${fn(feito)}</b> imagens${mi?` de <b>${fn(mi)}</b> da meta do dia`:', sem meta neste dia'}`:'Escolha o operador para ver a meta do dia'}</span><button class="btn pri" type="submit">Lançar</button></div>
     <p class="small muted" style="grid-column:1/-1">${f.func==='dig'?'Conte imagens, não arquivos: cada imagem do escâner gera o Master TIFF e o TIFF Derivado.':f.func==='fin'?'Lance só o que já tem PDF com OCR, passou no controle de qualidade e está pronto para envio.':f.func==='foto'?'Fotos JPG batidas no dia. A finalização delas é lançada depois, com origem "Das fotos".':''}</p>
   </form></section>
   <section class="panel"><div class="spread"><h2>Lançamentos de ${ymLabel(ui.ym).toLowerCase()}</h2><div class="row noprint">
@@ -514,27 +521,26 @@ function dlgNf(id){const n=id?nfs().find(x=>x.id===id):{data:hoje(),entregas:[]}
 /* ========= Equipe ========= */
 function V_equipe(){const cs=colabs(),a=`${ui.ym}-01`,b=lastOfM(ui.ym),ref=hoje()<cfg().inicio?cfg().inicio:hoje();
   return`<section class="panel"><div class="spread"><h2>Operadores MEI (${cs.filter(c=>c.ativo!==false).length} ativos)</h2><div class="row noprint"><button class="btn" data-act="print">Imprimir</button><button class="btn pri" data-act="newColab">Cadastrar operador</button></div></div>
-  ${cs.length?`<div class="tw"><table><thead><tr><th>Nome</th><th>Telefone</th><th>Serviços</th><th>Meta diária de hoje</th><th class="n">Imagens no mês</th><th>Situação</th><th class="noprint"></th></tr></thead><tbody>
-  ${cs.map(c=>{const co=condOf(c,ref),q=lancs().filter(l=>l.colab===c.id&&inR(l,a,b)).reduce((t,l)=>t+num(l.qtd),0),fs=(c.funcs||[]).filter(s=>ST[s]);
+  ${cs.length?`<div class="tw"><table><thead><tr><th>Nome</th><th>Telefone</th><th>Serviços</th><th class="n">Meta diária de hoje</th><th class="n">Imagens no mês</th><th>Situação</th><th class="noprint"></th></tr></thead><tbody>
+  ${cs.map(c=>{const q=lancs().filter(l=>l.colab===c.id&&inR(l,a,b)).reduce((t,l)=>t+num(l.qtd),0),fs=(c.funcs||[]).filter(s=>ST[s]);
     return`<tr><td><b>${esc(c.nome)}</b></td><td>${c.tel?`<a href="tel:${esc(c.tel.replace(/\D/g,''))}">${esc(c.tel)}</a>`:''}</td><td class="small">${fs.map(s=>`<span class="dot" style="background:${ST[s].c}"></span>${ST[s].n}`).join('<br>')}</td>
-    <td class="small">${fs.map(s=>s==='sup'?'-':`${fn(metaInd(c,s,ref))}${co.metas?.[s]>0?'':' <span class="muted">automática</span>'}`).join('<br>')}</td>
+    <td class="n">${temProd(c)?`<b>${fn(metaCol(c,ref))}</b>${metaPropria(c,ref)>0?'':'<br><span class="small muted">automática</span>'}`:'-'}</td>
     <td class="n">${fn(q)}</td><td>${c.ativo===false?'<span class="bdg z">Inativo</span>':'<span class="bdg g">Ativo</span>'}</td><td class="noprint n"><button class="btn sm" data-act="editColab" data-v="${c.id}">Editar</button> <button class="btn sm" data-act="goHist" data-v="${c.id}">Histórico</button></td></tr>`}).join('')}</tbody></table></div>`
   :'<div class="empty">Cadastre nome, telefone, serviços e metas de cada operador.</div>'}
-  <p class="small sub" style="margin-top:12px">Meta automática: a meta diária do serviço, dividida entre os operadores ativos nele. Ao informar uma meta própria, ela passa a valer para aquela pessoa.</p></section>`}
+  <p class="small sub" style="margin-top:12px">A meta diária de cada operador vale para a soma de tudo o que ele fizer no dia: escâner, fotos e finalização. Exemplo: 2.000 fotos, 1.500 no escâner e 1.500 finalizadas somam 5.000 para a meta. Meta automática: a meta da equipe no dia (escâner, fotos e finalização somados), dividida entre os operadores sem meta própria.</p></section>`}
 function dlgColab(id){const c=id?cById(id):{nome:'',tel:'',funcs:[],inicio:cfg().inicio,ativo:true,cond:[]};const ref=hoje()<cfg().inicio?cfg().inicio:hoje(),co=condOf(c,ref);
   openDlg(id?'Editar operador':'Cadastrar operador',`<div class="form">
    <label class="f wide">Nome<input name="nome" value="${esc(c.nome)}" required></label>
    <label class="f">Telefone<input name="tel" type="tel" inputmode="tel" value="${esc(c.tel)}" data-phone placeholder="(21) 99999-9999"></label>
    <label class="f">Início no projeto<input type="date" name="inicio" value="${c.inicio||''}"></label>
-   <div class="f wide">Serviços e meta diária própria<div class="tw"><table><tbody>${ALLST.map(s=>`<tr><td><label class="row" style="flex-wrap:nowrap"><input type="checkbox" name="f_${s}" ${(c.funcs||[]).includes(s)?'checked':''}> ${ST[s].n}</label></td><td>${s==='sup'?'':`<input class="num" type="number" min="0" name="m_${s}" value="${co.metas?.[s]||''}" placeholder="Auto" aria-label="Meta diária de ${ST[s].n}">`}</td></tr>`).join('')}</tbody></table></div></div>
-   <label class="f">Metas valem a partir de<input type="date" name="desde" value="${id?ref:(c.inicio||cfg().inicio)}"></label>
+   <div class="f wide">Serviços que executa<div class="checks">${ALLST.map(s=>`<label><input type="checkbox" name="f_${s}" ${(c.funcs||[]).includes(s)?'checked':''}> ${ST[s].n}</label>`).join('')}</div></div>
+   <label class="f">Meta diária própria (soma das funções)<input type="number" min="0" name="meta" value="${metaPropria(c,ref)||''}" placeholder="Automática"></label>
+   <label class="f">Meta vale a partir de<input type="date" name="desde" value="${id?ref:(c.inicio||cfg().inicio)}"></label>
    <label class="f">Situação<select name="ativo"><option value="1" ${c.ativo!==false?'selected':''}>Ativo</option><option value="0" ${c.ativo===false?'selected':''}>Inativo</option></select></label>
    <label class="f wide">Observações<input name="obs" value="${esc(c.obs)}"></label></div>`,
    fd=>{const nome=fd.get('nome').trim();if(!nome)return false;const funcs=ALLST.filter(s=>fd.get('f_'+s));if(!funcs.length){toast('Marque ao menos um serviço.');return false}
-     const metas={};PROD.forEach(s=>{const m=num(fd.get('m_'+s));if(m)metas[s]=m});
-     const desde=fd.get('desde')||ref;let cond=(c.cond||[]).filter(x=>x.desde!==desde);const old=condOf(c,desde);
-     if(JSON.stringify(old.metas||{})!==JSON.stringify(metas)||!cond.length)cond.push({desde,metas,em:Date.now()});else cond=c.cond;
-     cond=cond.map(x=>({desde:x.desde,metas:x.metas||{},em:x.em}));
+     const meta=num(fd.get('meta')),desde=fd.get('desde')||ref;let cond=(c.cond||[]).map(x=>({desde:x.desde,meta:x.meta>0?x.meta:PROD.reduce((t,s)=>t+num((x.metas||{})[s]),0),em:x.em}));
+     if(metaPropria(c,desde)!==meta||!cond.length){cond=cond.filter(x=>x.desde!==desde);cond.push({desde,meta,em:Date.now()})}
      const ativo=fd.get('ativo')==='1';
      put('colab',{...c,id:c.id||nid(),nome,tel:fd.get('tel').trim(),funcs,inicio:fd.get('inicio'),ativo,fim:ativo?'':(c.fim||hoje()),cond,obs:fd.get('obs')});toast('Operador salvo.')},
    id?()=>confirmar(`Excluir ${c.nome}? Os lançamentos dele continuam gravados, sem o nome. Para quem saiu do projeto, prefira marcar como inativo.`,()=>{del('colab',c);toast('Operador excluído.')}):null)}
@@ -542,23 +548,21 @@ function dlgColab(id){const c=id?cById(id):{nome:'',tel:'',funcs:[],inicio:cfg()
 /* ========= Histórico ========= */
 function V_historico(){const cs=colabs();if(!cs.length)return`<section class="panel"><div class="empty">Sem operadores cadastrados.</div></section>`;
   if(!cById(ui.hist))ui.hist=cs[0].id;const c=cById(ui.hist),mine=lancs().filter(l=>l.colab===c.id);
-  const ss=PROD.filter(s=>(c.funcs||[]).includes(s)||mine.some(l=>l.func===s));
-  const ms=monthsList();
-  const tabs=ss.map(s=>{let prev=0;const rows=ms.map(y=>{const a=`${y}-01`,b=lastOfM(y),r=resumo(a,b,c.id).find(x=>x.s===s)||{qtd:0,meta:0,rep:0,dias:0,med:0,p:null},p=presenca(a,b,c.id),o={y,r,p,prev};prev=r.med||prev;return o});
-    const mx=Math.max(1,...rows.map(x=>x.r.qtd));
-    return`<section class="panel"><h2><span class="dot" style="background:${ST[s].c}"></span>${ST[s].n}: mês a mês</h2><div class="tw"><table><thead><tr><th>Mês</th><th></th><th class="n">Imagens</th><th class="n">Meta</th><th class="n">%</th><th>Avaliação</th><th class="n">Dias</th><th class="n">Média por dia</th><th>Contra o mês anterior</th><th class="n">Faltas</th><th class="n">Reprov.</th></tr></thead><tbody>
-    ${rows.map(({y,r,p,prev})=>`<tr class="${y===ui.ym?'cur':''}"><td>${MES[+y.slice(5,7)-1].slice(0,3)}/${y.slice(2,4)}</td><td style="min-width:80px"><div class="meter"><span style="width:${r.qtd/mx*100}%"></span></div></td><td class="n">${fn(r.qtd)}</td><td class="n">${fn(r.meta)}</td><td class="n">${r.p!=null?fn(r.p)+'%':'-'}</td><td>${r.qtd||r.meta?bdg(r.p):''}</td><td class="n">${r.dias}</td><td class="n">${r.med?fn(r.med):'-'}</td><td>${r.med?trend(r.med,prev):''}</td><td class="n">${p.faltas}</td><td class="n">${fn(r.rep)}</td></tr>`).join('')}
-    <tr class="tot"><td colspan="2">Total</td><td class="n">${fn(rows.reduce((t,x)=>t+x.r.qtd,0))}</td><td class="n">${fn(rows.reduce((t,x)=>t+x.r.meta,0))}</td><td colspan="6"></td><td class="n">${fn(rows.reduce((t,x)=>t+x.r.rep,0))}</td></tr></tbody></table></div></section>`}).join('');
+  let prev=0;const rows=monthsList().map(y=>{const a=`${y}-01`,b=lastOfM(y),r=resumo(a,b,c.id)[0]||{q:{dig:0,foto:0,fin:0},qtd:0,meta:0,rep:0,dias:0,med:0,p:null},p=presenca(a,b,c.id),o={y,r,p,prev};prev=r.med||prev;return o});
+  const mx=Math.max(1,...rows.map(x=>x.r.qtd)),sum=k=>rows.reduce((t,x)=>t+(k in x.r.q?x.r.q[k]:x.r[k]),0);
   const conds=(c.cond||[]).slice().sort((a,b)=>a.desde<b.desde?1:-1);
   const a=`${ui.ym}-01`,b=lastOfM(ui.ym),evs=[];for(let d=a;d<=b;d=nextD(d)){const p=presOf(d,c.id);if(p&&(p.status!=='presente'||p.obs))evs.push({d,p})}
   const ml=mine.filter(l=>inR(l,a,b)),av=Object.values(shards.aval||{}).filter(x=>x.colab===c.id&&(x.nota||x.com)).sort((x,y)=>x.ym<y.ym?1:-1);
+  const dias=[];for(let d=a;d<=b;d=nextD(d)){const m=metaCol(c,d),q=prodDia(c.id,d);if(m||q)dias.push({d,m,q})}
   return`<section class="panel"><div class="spread"><label class="f" style="min-width:240px">Operador<select data-filter="hist">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.nome)}</option>`).join('')}</select></label><button class="btn noprint" data-act="print">Imprimir histórico</button></div>
-   <p style="margin-top:10px"><b>${esc(c.nome)}</b>${c.tel?`, ${esc(c.tel)}`:''}. Serviços: ${(c.funcs||[]).map(stN).join(', ')}.</p></section>
-  ${tabs||'<section class="panel"><div class="empty">Sem produção registrada.</div></section>'}
-  <div class="grid2"><section class="panel"><h2>Histórico de metas</h2>${conds.length?`<div class="tw"><table><thead><tr><th>Desde</th><th>Metas próprias</th></tr></thead><tbody>${conds.map(x=>`<tr><td>${br(x.desde)}</td><td class="small">${Object.entries(x.metas||{}).filter(([s])=>ST[s]).map(([s,v])=>`${ST[s].n}: ${fn(v)}`).join('<br>')||'Automática'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Sem alterações registradas.</div>'}
+   <p style="margin-top:10px"><b>${esc(c.nome)}</b>${c.tel?`, ${esc(c.tel)}`:''}. Serviços: ${(c.funcs||[]).map(stN).join(', ')}. A meta vale para a soma das funções.</p></section>
+  <section class="panel"><h2>Mês a mês</h2><div class="tw"><table><thead><tr><th>Mês</th><th></th>${qHead()}<th class="n">Total</th><th class="n">Meta</th><th class="n">%</th><th>Avaliação</th><th class="n">Dias</th><th class="n">Média por dia</th><th>Contra o mês anterior</th><th class="n">Faltas</th><th class="n">Reprov.</th></tr></thead><tbody>
+    ${rows.map(({y,r,p,prev})=>`<tr class="${y===ui.ym?'cur':''}"><td>${MES[+y.slice(5,7)-1].slice(0,3)}/${y.slice(2,4)}</td><td style="min-width:70px"><div class="meter"><span style="width:${r.qtd/mx*100}%"></span></div></td>${qCols(r)}<td class="n"><b>${fn(r.qtd)}</b></td><td class="n">${fn(r.meta)}</td><td class="n">${r.p!=null?fn(r.p)+'%':'-'}</td><td>${r.qtd||r.meta?bdg(r.p):''}</td><td class="n">${r.dias}</td><td class="n">${r.med?fn(r.med):'-'}</td><td>${r.med?trend(r.med,prev):''}</td><td class="n">${p.faltas}</td><td class="n">${fn(r.rep)}</td></tr>`).join('')}
+    <tr class="tot"><td colspan="2">Total</td>${PROD.map(k=>`<td class="n">${fn(sum(k))}</td>`).join('')}<td class="n">${fn(sum('qtd'))}</td><td class="n">${fn(sum('meta'))}</td><td colspan="6"></td><td class="n">${fn(sum('rep'))}</td></tr></tbody></table></div></section>
+  <section class="panel"><h2>Dia a dia em ${ymLabel(ui.ym).toLowerCase()}</h2>${dias.length?`<div class="tw"><table><thead><tr><th>Data</th>${qHead()}<th class="n">Total do dia</th><th class="n">Meta do dia</th><th>Resultado</th></tr></thead><tbody>${dias.map(x=>{const q={dig:0,foto:0,fin:0};mine.filter(l=>l.data===x.d&&q[l.func]!=null).forEach(l=>q[l.func]+=num(l.qtd));return`<tr><td>${br2(x.d)}</td>${qCols({q})}<td class="n"><b>${fn(x.q)}</b></td><td class="n">${fn(x.m)}</td><td>${x.d<=hoje()?bdg(x.m?x.q/x.m*100:null):''}</td></tr>`}).join('')}</tbody></table></div>`:'<div class="empty">Sem produção nem meta neste mês.</div>'}</section>
+  <div class="grid2"><section class="panel"><h2>Histórico de metas</h2>${conds.length?`<div class="tw"><table><thead><tr><th>Desde</th><th class="n">Meta diária própria</th></tr></thead><tbody>${conds.map(x=>{const v=x.meta>0?x.meta:PROD.reduce((t,s)=>t+num((x.metas||{})[s]),0);return`<tr><td>${br(x.desde)}</td><td class="n">${v?fn(v):'Automática'}</td></tr>`}).join('')}</tbody></table></div>`:'<div class="empty">Sem alterações registradas.</div>'}
    ${av.length?`<h3 style="margin:14px 0 6px">Notas do supervisor</h3><div class="tw"><table><tbody>${av.map(x=>`<tr><td>${MES[+x.ym.slice(5,7)-1].slice(0,3)}/${x.ym.slice(2,4)}</td><td>${x.nota?`${x.nota} de 5`:''}</td><td class="small">${esc(x.com)}</td></tr>`).join('')}</tbody></table></div>`:''}</section>
-  <section class="panel"><h2>Acontecimentos em ${ymLabel(ui.ym).toLowerCase()}</h2>${evs.length?`<div class="tw"><table><tbody>${evs.map(e=>`<tr><td>${br2(e.d)}</td><td>${sitBadge(e.p.status)}</td><td class="small">${esc(e.p.obs)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nada registrado neste mês.</div>'}</section></div>
-  <section class="panel"><h2>Lançamentos de ${ymLabel(ui.ym).toLowerCase()}</h2>${ml.length?`<div class="tw"><table><thead><tr><th>Data</th><th>Serviço</th><th class="n">Imagens</th><th class="n">Horas</th><th>Observações</th></tr></thead><tbody>${ml.map(l=>`<tr><td>${br2(l.data)}</td><td>${stN(l.func)}</td><td class="n">${fn(l.qtd)}</td><td class="n">${l.horas?fn(l.horas,1):''}</td><td class="small">${esc(l.obs)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Sem lançamentos neste mês.</div>'}</section>`}
+  <section class="panel"><h2>Acontecimentos em ${ymLabel(ui.ym).toLowerCase()}</h2>${evs.length?`<div class="tw"><table><tbody>${evs.map(e=>`<tr><td>${br2(e.d)}</td><td>${sitBadge(e.p.status)}</td><td class="small">${esc(e.p.obs)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nada registrado neste mês.</div>'}</section></div>`}
 const sitBadge=s=>`<span class="bdg ${{presente:'g',parcial:'w',falta:'c',folga:'z'}[s]||'z'}">${SIT[s]||'Sem registro'}</span>`;
 
 /* ========= Metas ========= */
@@ -572,7 +576,7 @@ function V_metas(){const c=cfg(),P=plan(),ms=monthsList();let acc=0,accF=0;
   const nF=P.restF>0?`faltam <b>${fn(P.restF)}</b> de finalização`:`a finalização fecha em <b>${br(lastPlanDay('fin'))}</b>`;
   return`<section class="panel"><div class="spread"><h2>Meta diária da equipe por mês</h2><span class="small sub">Prazo: ${br(c.inicio)} a ${br(c.fimPrazo)}, ${utilDays(c.inicio,c.fimPrazo).length} dias úteis</span></div>
    <div class="tw"><table><thead><tr><th>Mês</th>${PROD.map(s=>`<th>${ST[s].s}</th>`).join('')}<th class="n">Captura no mês</th><th class="n">Captura acumulada</th><th class="n">Finalização no mês</th><th class="n">Conclusão</th></tr></thead><tbody>${rows}</tbody></table></div>
-   <div class="note ${P.restC>0||P.restF>0?'c':''}" style="margin-top:12px">${nC}, e ${nF}. A captura soma escâner e fotos. Cada meta para quando o total de ${fn(TOTAL)} é alcançado, e os dias seguintes ficam como reserva.</div></section>
+   <div class="note ${P.restC>0||P.restF>0?'c':''}" style="margin-top:12px">${nC}, e ${nF}. A captura soma escâner e fotos. Para cada operador, a meta é uma só e vale para a soma de escâner, fotos e finalização; a meta automática divide entre eles o total da equipe no dia. Cada meta da equipe para quando o total de ${fn(TOTAL)} é alcançado, e os dias seguintes ficam como reserva.</div></section>
   <section class="panel"><div class="spread"><h2>Metas dia a dia em ${ymLabel(y).toLowerCase()}</h2><span class="small sub">Toque no dia para mudar a meta ou marcar sem expediente. O número é a meta de captura.</span></div>
    <div class="cal">${['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(x=>`<div class="dw">${x}</div>`).join('')}${cal}</div></section>
   <section class="panel"><h2>Critério de avaliação</h2><div class="form" style="max-width:560px">
@@ -600,16 +604,26 @@ function V_diario(){const d=ui.dia,cs=colabs().filter(c=>ativoEm(c,d)&&c.ativo!=
 
 /* ========= Tarefas ========= */
 const PRI={alta:['Alta','c'],media:['Média','w'],baixa:['Baixa','z']};
+function diariaProd(){const d=ui.dia,h=hoje(),cs=colabs().filter(c=>(ativoEm(c,d)&&temProd(c)&&c.ativo!==false)||prodDia(c.id,d));
+  const rows=cs.map(c=>{const q={dig:0,foto:0,fin:0};lancs().filter(l=>l.colab===c.id&&l.data===d&&q[l.func]!=null).forEach(l=>q[l.func]+=num(l.qtd));const qtd=q.dig+q.foto+q.fin,m=metaCol(c,d);return{c,q,qtd,m,pr:presOf(d,c.id),hs:horasDia(c.id,d)}});
+  const t={dig:0,foto:0,fin:0};rows.forEach(r=>PROD.forEach(k=>t[k]+=r.q[k]));const tq=t.dig+t.foto+t.fin,tm=rows.reduce((s,r)=>s+r.m,0),notas=all('diario').filter(n=>n.data===d);
+  return`<section class="panel"><div class="spread"><h2>Diária de produção</h2><div class="row"><button class="btn noprint" data-act="diaP" aria-label="Dia anterior">‹</button><input class="inp" style="width:auto" type="date" value="${d}" data-filter="dia"><button class="btn noprint" data-act="diaN" aria-label="Próximo dia">›</button><button class="btn noprint" data-act="print">Imprimir diária</button></div></div>
+   <p class="sub small" style="margin-bottom:10px">${isUtil(d)?'Dia útil':'Sem expediente previsto'}. A meta de cada operador vale para a soma das funções.</p>
+   ${rows.length?`<div class="tw"><table><thead><tr><th>Operador</th>${qHead()}<th class="n">Total</th><th class="n">Meta do dia</th><th class="n">%</th><th>Resultado</th><th>Situação</th><th class="n">Horas</th></tr></thead><tbody>
+   ${rows.map(r=>`<tr><td><b>${esc(r.c.nome)}</b></td>${qCols(r)}<td class="n"><b>${fn(r.qtd)}</b></td><td class="n">${fn(r.m)}</td><td class="n">${r.m?fn(r.qtd/r.m*100)+'%':'-'}</td><td>${d<=h?bdg(r.m?r.qtd/r.m*100:null):''}</td><td>${r.pr?.status?sitBadge(r.pr.status):'<span class="muted small">Sem registro</span>'}</td><td class="n">${r.hs?fn(r.hs,1):''}</td></tr>`).join('')}
+   <tr class="tot"><td>Total da equipe</td>${PROD.map(k=>`<td class="n">${fn(t[k])}</td>`).join('')}<td class="n">${fn(tq)}</td><td class="n">${fn(tm)}</td><td class="n">${tm?fn(tq/tm*100)+'%':'-'}</td><td colspan="3"></td></tr></tbody></table></div>`:'<div class="empty">Nenhum operador ativo nesta data.</div>'}
+   <p class="small sub" style="margin-top:10px">Contrato no dia: captura ${fn(t.dig+t.foto)} de ${fn(planDay('capt',d))}, finalização ${fn(t.fin)} de ${fn(planDay('fin',d))}.</p>
+   ${notas.length?`<h3 style="margin:14px 0 4px">Anotações do supervisor</h3>${notas.map(n=>`<p style="white-space:pre-wrap;margin-bottom:6px">${n.autor?`<b>${esc(n.autor)}:</b> `:''}${esc(n.texto)}</p>`).join('')}`:''}</section>`}
 function V_tarefas(){const ts=all('tar').sort((x,y)=>(x.feita?1:0)-(y.feita?1:0)||(x.prazo||'9').localeCompare(y.prazo||'9')),h=hoje();
   const a=`${ui.ym}-01`,b=lastOfM(ui.ym),show=ts.filter(t=>!t.feita||(t.feitaEm>=a&&t.feitaEm<=b)),notas=all('diario').filter(n=>inR(n,a,b)).sort((x,y)=>x.data<y.data?1:-1);
-  return`<div class="grid2"><section class="panel"><div class="spread"><h2>Tarefas</h2><button class="btn pri noprint" data-act="newTar">Nova tarefa</button></div>
+  return`${diariaProd()}<div class="grid2"><section class="panel"><div class="spread"><h2>Tarefas</h2><button class="btn pri noprint" data-act="newTar">Nova tarefa</button></div>
    ${show.length?`<div class="tw"><table><tbody>${show.map(t=>`<tr><td style="width:30px"><input type="checkbox" data-tar="${t.id}" ${t.feita?'checked':''} aria-label="Concluir ${esc(t.titulo)}" style="width:18px;height:18px;min-height:0"></td><td><span style="${t.feita?'text-decoration:line-through;color:var(--ink3)':''}"><b>${esc(t.titulo)}</b></span><br><span class="small sub">${esc(t.resp)}${t.resp&&t.prazo?', ':''}${t.prazo?`prazo ${br(t.prazo)}`:''}</span>${t.obs?`<br><span class="small">${esc(t.obs)}</span>`:''}</td><td>${!t.feita&&t.prazo&&t.prazo<h?'<span class="bdg c">Atrasada</span> ':''}<span class="bdg ${PRI[t.pri]?.[1]||'z'}">${PRI[t.pri]?.[0]||''}</span></td><td class="noprint n"><button class="btn sm" data-act="editTar" data-v="${t.id}">Editar</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhuma tarefa em aberto.</div>'}</section>
-  <section class="panel"><div class="spread"><h2>Anotações do supervisor</h2><div class="row noprint"><button class="btn" data-act="print">Imprimir</button><button class="btn pri" data-act="newNota">Nova anotação</button></div></div>
+  <section class="panel"><div class="spread"><h2>Anotações do supervisor</h2><div class="row noprint"><button class="btn pri" data-act="newNota">Nova anotação</button></div></div>
    ${notas.length?notas.map(n=>`<div style="border-bottom:1px solid var(--line2);padding:9px 0"><div class="spread"><b>${br(n.data)}${n.autor?`, ${esc(n.autor)}`:''}</b><button class="btn sm noprint" data-act="editNota" data-v="${n.id}">Editar</button></div><p style="white-space:pre-wrap;margin-top:3px">${esc(n.texto)}</p></div>`).join(''):`<div class="empty">Nada anotado em ${ymLabel(ui.ym).toLowerCase()}.</div>`}</section></div>`}
 function dlgTar(id){const t=id?all('tar').find(x=>x.id===id):{pri:'media'};
   openDlg(id?'Editar tarefa':'Nova tarefa',`<div class="form"><label class="f wide">Tarefa<input name="titulo" value="${esc(t.titulo)}" required></label><label class="f">Responsável<input name="resp" value="${esc(t.resp)}" list="dlC"><datalist id="dlC">${colabs().map(c=>`<option value="${esc(c.nome)}">`).join('')}</datalist></label><label class="f">Prazo<input type="date" name="prazo" value="${t.prazo||''}"></label><label class="f">Prioridade<select name="pri">${Object.entries(PRI).map(([k,v])=>`<option value="${k}" ${t.pri===k?'selected':''}>${v[0]}</option>`).join('')}</select></label><label class="f wide">Observações<textarea name="obs" rows="2">${esc(t.obs)}</textarea></label></div>`,
    fd=>{if(!fd.get('titulo').trim())return false;put('tar',{...t,titulo:fd.get('titulo').trim(),resp:fd.get('resp'),prazo:fd.get('prazo'),pri:fd.get('pri'),obs:fd.get('obs')});toast('Tarefa salva.')},id?()=>confirmar('Excluir esta tarefa?',()=>del('tar',t)):null)}
-function dlgNota(id){const n=id?all('diario').find(x=>x.id===id):{data:hoje()};
+function dlgNota(id){const n=id?all('diario').find(x=>x.id===id):{data:ui.dia||hoje()};
   openDlg(id?'Editar anotação':'Nova anotação',`<div class="form"><label class="f">Data<input type="date" name="data" value="${n.data}" required></label><label class="f">Supervisor<input name="autor" value="${esc(n.autor)}" list="dlS"><datalist id="dlS">${colabs().filter(c=>(c.funcs||[]).includes('sup')).map(c=>`<option value="${esc(c.nome)}">`).join('')}</datalist></label><label class="f wide">O que aconteceu hoje<textarea name="texto" rows="5" required>${esc(n.texto)}</textarea></label></div>`,
    fd=>{if(!fd.get('texto').trim())return false;put('diario',{...n,data:fd.get('data'),autor:fd.get('autor'),texto:fd.get('texto')});toast('Anotação salva.')},id?()=>confirmar('Excluir esta anotação?',()=>del('diario',n)):null)}
 
@@ -639,7 +653,7 @@ function dlgImport(){openDlg('Colar lista de obras',`<p class="small sub" style=
 
 /* ========= Fechamento ========= */
 function periodo(){const c=cfg();if(ui.fmode==='dia')return{a:ui.fdia,b:ui.fdia,t:`Dia ${br(ui.fdia)}`,key:ui.fdia};if(ui.fmode==='proj')return{a:c.inicio,b:c.fimPrazo,t:'Todo o contrato'};const a=`${ui.ym}-01`;return{a,b:lastOfM(ui.ym),t:ymLabel(ui.ym),key:ui.ym}}
-function V_fechamento(){const p=periodo(),t=totals(p.a,p.b),acc=totals('0',p.b),rows=resumo(p.a,p.b).filter(r=>r.s!=='sup'||r.qtd),h=hoje(),lim=h<p.b?h:p.b,f=p.key?(shards.fech||{})[p.key]:null;
+function V_fechamento(){const p=periodo(),t=totals(p.a,p.b),acc=totals('0',p.b),rows=resumo(p.a,p.b),h=hoje(),lim=h<p.b?h:p.b,f=p.key?(shards.fech||{})[p.key]:null;
   const cs=[...new Set(rows.map(r=>r.c))];
   const evs=[];for(let x=p.a;x<=(p.b>h?h:p.b);x=nextD(x))for(const c of colabs()){const q=presOf(x,c.id);if(q&&(q.status==='falta'||q.status==='parcial'||q.obs))evs.push({x,c,q})}
   const notas=all('diario').filter(n=>inR(n,p.a,p.b)&&ui.fmode==='dia');
@@ -657,9 +671,9 @@ function V_fechamento(){const p=periodo(),t=totals(p.a,p.b),acc=totals('0',p.b),
    <tr class="tot"><td>Finalizadas e prontas para envio</td><td class="n">${fn(t.fin)}</td><td class="n">${fn(mp('fin'))}</td><td class="n">${mp('fin')?fn(t.fin/mp('fin')*100)+'%':'-'}</td><td class="n">${fn(acc.fin)}</td><td class="n">${fn(TOTAL-acc.fin)}</td></tr>
    ${linha('Entregues ao cliente',STG.ent.hex,t.ent,0,acc.ent)}${linha('Aprovadas para pagamento',STG.apr.hex,t.apr,0,acc.apr)}${linha('Com nota fiscal emitida','#7b8290',t.nf,0,acc.nf)}
    </tbody></table></div><p class="small sub" style="margin-top:8px">Arquivos prontos no contrato (Master TIFF, TIFF Derivado e PDF com OCR): <b>${fn(acc.fin*DERIV)}</b> de ${fn(TOTAL*DERIV)}.</p></section>
-  <section class="panel"><h2>Quantidade por operador</h2>${rows.length?`<div class="tw"><table><thead><tr><th>Operador</th><th>Serviço</th><th class="n">Imagens</th><th class="n">Meta</th><th class="n">%</th><th>Avaliação</th><th class="n">Dias</th><th class="n">Média por dia</th><th class="n">Reprov.</th><th class="n">Horas</th></tr></thead><tbody>
-   ${rows.map(r=>`<tr><td><b>${esc(r.c.nome)}</b></td><td>${ST[r.s].n}</td><td class="n"><b>${fn(r.qtd)}</b></td><td class="n">${fn(r.meta)}</td><td class="n">${r.p!=null?fn(r.p)+'%':'-'}</td><td>${bdg(r.p)}</td><td class="n">${r.dias}</td><td class="n">${r.med?fn(r.med):'-'}</td><td class="n">${fn(r.rep)}</td><td class="n">${fn(r.hs,1)}</td></tr>`).join('')}
-   <tr class="tot"><td colspan="2">Total</td><td class="n">${fn(rows.reduce((s,r)=>s+r.qtd,0))}</td><td colspan="5"></td><td class="n">${fn(rows.reduce((s,r)=>s+r.rep,0))}</td><td class="n">${fn(rows.reduce((s,r)=>s+r.hs,0),1)}</td></tr></tbody></table></div>`:'<div class="empty">Sem produção neste período.</div>'}</section>
+  <section class="panel"><h2>Quantidade por operador</h2><p class="small sub" style="margin:-6px 0 10px">A meta de cada operador vale para a soma de escâner, fotos e finalização.</p>${rows.length?`<div class="tw"><table><thead><tr><th>Operador</th>${qHead()}<th class="n">Total</th><th class="n">Meta</th><th class="n">%</th><th>Avaliação</th><th class="n">Dias</th><th class="n">Média por dia</th><th class="n">Reprov.</th><th class="n">Horas</th></tr></thead><tbody>
+   ${rows.map(r=>`<tr><td><b>${esc(r.c.nome)}</b></td>${qCols(r)}<td class="n"><b>${fn(r.qtd)}</b></td><td class="n">${fn(r.meta)}</td><td class="n">${r.p!=null?fn(r.p)+'%':'-'}</td><td>${bdg(r.p)}</td><td class="n">${r.dias}</td><td class="n">${r.med?fn(r.med):'-'}</td><td class="n">${fn(r.rep)}</td><td class="n">${fn(r.hs,1)}</td></tr>`).join('')}
+   <tr class="tot"><td>Total</td>${PROD.map(k=>`<td class="n">${fn(rows.reduce((s,r)=>s+r.q[k],0))}</td>`).join('')}<td class="n">${fn(rows.reduce((s,r)=>s+r.qtd,0))}</td><td class="n">${fn(rows.reduce((s,r)=>s+r.meta,0))}</td><td colspan="4"></td><td class="n">${fn(rows.reduce((s,r)=>s+r.rep,0))}</td><td class="n">${fn(rows.reduce((s,r)=>s+r.hs,0),1)}</td></tr></tbody></table></div>`:'<div class="empty">Sem produção neste período.</div>'}</section>
   ${cs.length&&ui.fmode==='mes'?`<section class="panel"><h2>Presença e avaliação do supervisor</h2><div class="tw"><table><thead><tr><th>Operador</th><th>Telefone</th><th class="n">Dias com produção</th><th class="n">Faltas</th><th class="n">Horas</th><th>Nota do supervisor</th><th>Comentário</th></tr></thead><tbody>
    ${cs.map(c=>{const pr=presenca(p.a,p.b>h?h:p.b,c.id),nt=(shards.aval||{})[`${ui.ym}_${c.id}`]||{};return`<tr><td><b>${esc(c.nome)}</b></td><td>${esc(c.tel)}</td><td class="n">${pr.dias}</td><td class="n">${pr.faltas}</td><td class="n">${fn(pr.hs,1)}</td><td><select data-aval="${c.id}|nota" ${f?'disabled':''} aria-label="Nota de ${esc(c.nome)}"><option value="">Sem nota</option>${[5,4,3,2,1].map(n=>`<option value="${n}" ${+nt.nota===n?'selected':''}>${n} de 5</option>`).join('')}</select></td><td style="min-width:170px"><input data-aval="${c.id}|com" value="${esc(nt.com)}" ${f?'disabled':''} aria-label="Comentário sobre ${esc(c.nome)}"></td></tr>`}).join('')}</tbody></table></div></section>`:''}
   ${ep.length||np.length?`<section class="panel"><h2>Entregas e notas fiscais do período</h2><div class="tw"><table><thead><tr><th>Data</th><th>Movimento</th><th class="n">Imagens</th><th>Referência</th></tr></thead><tbody>
@@ -707,7 +721,7 @@ const A={
  fechar(e){const k=e.dataset.v;openDlg(k.length>7?`Fechar o dia ${br(k)}`:`Fechar ${ymLabel(k).toLowerCase()}`,`<p style="margin-bottom:10px">Depois de fechar, os lançamentos e o diário deste período ficam travados até alguém reabrir.</p><label class="f">Quem está fechando<input name="por" required></label>`,fd=>{const por=fd.get('por').trim();if(!por)return false;put('fech',{id:k,por,quando:hoje(),em:Date.now()});toast('Fechamento registrado.')},null,'Fechar')},
  reabrir(e){const f=(shards.fech||{})[e.dataset.v];if(f)confirmar('Reabrir este período para alterações?',()=>del('fech',f),'Reabrir')},
  csvLanc(){const a=`${ui.ym}-01`,b=lastOfM(ui.ym);csv(`lancamentos_${ui.ym}.csv`,[['Data','Operador','Serviço','Origem','Imagens','Reprovadas','Horas','Obra','Observações'],...lancs().filter(l=>inR(l,a,b)).map(l=>[br(l.data),cById(l.colab)?.nome||'',stN(l.func),l.func==='fin'?ORIG[l.orig||'esc']:'',l.qtd,l.rep||'',String(l.horas||'').replace('.',','),l.obra||'',l.obs||''])])},
- csvFech(){const p=periodo();csv(`fechamento_${p.key||'contrato'}.csv`,[['Operador','Telefone','Serviço','Imagens','Meta','%','Avaliação','Dias','Média por dia','Reprovadas','Horas'],...resumo(p.a,p.b).map(r=>[r.c.nome,r.c.tel||'',ST[r.s].n,r.qtd,Math.round(r.meta),r.p!=null?Math.round(r.p):'',nota(r.p).l,r.dias,Math.round(r.med),r.rep,String(r.hs).replace('.',',')])])},
+ csvFech(){const p=periodo();csv(`fechamento_${p.key||'contrato'}.csv`,[['Operador','Telefone','Escâner','Fotos','Finalização','Total','Meta','%','Avaliação','Dias','Média por dia','Reprovadas','Horas'],...resumo(p.a,p.b).map(r=>[r.c.nome,r.c.tel||'',r.q.dig,r.q.foto,r.q.fin,r.qtd,Math.round(r.meta),r.p!=null?Math.round(r.p):'',nota(r.p).l,r.dias,Math.round(r.med),r.rep,String(r.hs).replace('.',',')])])},
 };
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t||t.disabled)return;A[t.dataset.act]?.(t,e)});
 document.addEventListener('submit',e=>{if(e.target.id==='fLanc'){e.preventDefault();const f=ui.lanc;
